@@ -3,7 +3,7 @@ services:
     name: val-sistem-backend
     runtime: node
     plan: free
-    region: oregon
+    region: frankfurt
     buildCommand: npm install && npm run db:generate --workspace=apps/backend && npm run build --workspace=apps/backend
     startCommand: node apps/backend/dist/src/main.js
     envVars:
