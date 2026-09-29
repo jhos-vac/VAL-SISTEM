@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+/*
+ * Paleta "CryptoVault" — inspirada en la referencia de estilo que compartió
+ * el usuario (Figma Make: Investment Management Platform). Dark-first,
+ * como cualquier plataforma de trading: fondo casi negro, azul eléctrico
+ * como color de marca, verde/rojo para ganancia/pérdida. Tipografía: Inter
+ * para UI, DM Sans para títulos, JetBrains Mono para TODO valor numérico
+ * (precios, cantidades, porcentajes) — el detalle que más define este estilo.
+ */
+:root {
+  color-scheme: dark;
+  --background: #0b0e11;
+  --surface: #12161d;
+  --surface-raised: #171c26;
+  --foreground: #f5f7fa;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border-hairline: rgba(255, 255, 255, 0.08);
+  --grid-hairline: rgba(255, 255, 255, 0.06);
+  --axis-baseline: rgba(255, 255, 255, 0.14);
+
+  --primary: #3b82f6;
+  --primary-soft: rgba(59, 130, 246, 0.12);
+
+  --series-1: #3b82f6; /* blue (marca) */
+  --series-2: #f5a623; /* ámbar */
+  --series-3: #0ecb81; /* verde */
+  --series-4: #a78bfa; /* violeta */
+  --series-5: #f472b6; /* magenta */
+  --series-6: #22d3ee; /* cian */
+  --series-7: #fb923c; /* naranja */
+  --series-8: #f6465d; /* rojo */
+
+  --status-good: #0ecb81;
+  --status-warning: #f5a623;
+  --status-serious: #fb923c;
+  --status-critical: #f6465d;
+  --pnl-up: #0ecb81;
+  --pnl-down: #f6465d;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --background: #f7f8fa;
+    --surface: #ffffff;
+    --surface-raised: #f1f3f6;
+    --foreground: #0b0e11;
+    --text-secondary: #52596b;
+    --text-muted: #8a93a6;
+    --border-hairline: rgba(11, 14, 17, 0.1);
+    --grid-hairline: rgba(11, 14, 17, 0.08);
+    --axis-baseline: rgba(11, 14, 17, 0.16);
+
+    --primary-soft: rgba(59, 130, 246, 0.1);
+    --pnl-up: #0a9d67;
+    --pnl-down: #d92c47;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-foreground: var(--foreground);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border-hairline: var(--border-hairline);
+  --color-grid-hairline: var(--grid-hairline);
+  --color-axis-baseline: var(--axis-baseline);
+
+  --color-primary: var(--primary);
+  --color-primary-soft: var(--primary-soft);
+
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-series-4: var(--series-4);
+  --color-series-5: var(--series-5);
+  --color-series-6: var(--series-6);
+  --color-series-7: var(--series-7);
+  --color-series-8: var(--series-8);
+
+  --color-status-good: var(--status-good);
+  --color-status-warning: var(--status-warning);
+  --color-status-serious: var(--status-serious);
+  --color-status-critical: var(--status-critical);
+  --color-pnl-up: var(--pnl-up);
+  --color-pnl-down: var(--pnl-down);
+
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-dm-sans);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* {
+  border-color: var(--color-border-hairline);
+}
+
+/* Todo valor numérico (precios, cantidades, %, totales) va en monoespaciada
+   (JetBrains Mono) — es la firma visual de este estilo, no solo un detalle
+   de alineación. Cualquier celda/valor con `tabular-nums` la hereda sola. */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
