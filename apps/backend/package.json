@@ -12,7 +12,7 @@
     "start:dev": "nest start --watch",
     "dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
+    "start:prod": "node dist/src/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -37,7 +37,12 @@
     "db:seed:market": "tsx prisma/seed-market.ts",
     "db:seed:user": "tsx prisma/seed-user.ts",
     "db:seed:catalogs": "tsx prisma/seed-catalogs.ts",
-    "db:seed:portfolio": "tsx prisma/seed-portfolio.ts"
+    "db:seed:portfolio": "tsx prisma/seed-portfolio.ts",
+    "db:deploy": "npm run db:deploy:user && npm run db:deploy:market && npm run db:deploy:portfolio && npm run db:deploy:automation",
+    "db:deploy:user": "prisma migrate deploy --config prisma/prisma-user-database/prisma.config.ts",
+    "db:deploy:market": "prisma migrate deploy --config prisma/prisma-market-database/prisma.config.ts",
+    "db:deploy:portfolio": "prisma migrate deploy --config prisma/prisma-portfolio-database/prisma.config.ts",
+    "db:deploy:automation": "prisma migrate deploy --config prisma/prisma-automation-database/prisma.config.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

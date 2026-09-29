@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: val-sistem-backend
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run db:generate --workspace=apps/backend && npm run build --workspace=apps/backend
+    startCommand: node apps/backend/dist/src/main.js
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: DATABASE_USER
+        sync: false
+      - key: DATABASE_MARKET
+        sync: false
+      - key: DATABASE_PORTFOLIO
+        sync: false
+      - key: DATABASE_AUTOMATION
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN_DAYS
+        value: 30
+      - key: CORS_ORIGIN
+        sync: false
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: EXCHANGE_CREDENTIALS_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
