@@ -7,8 +7,14 @@
 // Automation siguen sin construir, así que esas pantallas se quedan con
 // mock-data.ts hasta que existan de verdad.
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+// Sin barra final: NEXT_PUBLIC_API_URL a veces queda pegado con un "/"
+// al final (typo al configurarlo en Vercel/Render) y, como abajo se arma
+// la URL con `${API_BASE_URL}${path}` y los paths ya empiezan con "/",
+// eso generaba peticiones con doble barra (.../com//auth/login) que el
+// backend no reconoce y devuelve 404.
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000"
+).replace(/\/+$/, "");
 
 export class ApiError extends Error {
   constructor(
