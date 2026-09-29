@@ -11,6 +11,3 @@ build/
 *.tsbuildinfo
 .idea/
 .vscode/
-# apps/backend tiene su propio repo git independiente (github.com/jhos-vac/VAL-BACKEND) —
-# se excluye acá para no embeberlo como un repo anidado roto.
-/apps/backend/

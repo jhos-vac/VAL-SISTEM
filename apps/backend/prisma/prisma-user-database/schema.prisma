@@ -1,0 +1,210 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/user-cli"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String         @id @default(uuid()) @db.Uuid
+  firstName     String         @map("first_name")
+  lastName      String         @map("last_name")
+  username      String         @unique
+  email         String         @unique
+  passwordHash  String         @map("password_hash")
+  emailVerified Boolean        @default(false) @map("email_verified")
+  phoneVerified Boolean        @default(false) @map("phone_verified")
+  status        String         @default("Active")
+  lastLoginAt   DateTime?      @map("last_login_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @default(now()) @map("updated_at")
+  deletedAt     DateTime?      @map("deleted_at")
+  roles         UserRole[]
+  refreshTokens RefreshToken[]
+  devices       Device[]
+  userSettings  UserSetting[]
+  passwordResetTokens PasswordResetToken[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String           @id @default(uuid()) @db.Uuid
+  name        String
+  description String
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @default(now()) @map("updated_at")
+  permissions RolePermission[]
+  users       UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  name        String
+  description String
+  module      String
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @default(now()) @map("updated_at")
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId        String @map("roles_id") @db.Uuid
+  permissionsId String @map("permissions_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionsId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionsId])
+  @@unique([roleId, permissionsId])
+  @@map("roles_permissions")
+}
+
+model UserRole {
+  roleId String @map("roles_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  role Role @relation(fields: [roleId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@id([roleId, userId])
+  @@map("user_role")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.VarChar(500)
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  ipAddress String    @map("ip_address") @db.VarChar(45)
+  userAgent String    @map("user_agent") @db.Text
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model Device {
+  id         String @id @default(uuid()) @db.Uuid
+  userId     String @map("user_ID") @db.Uuid
+  deviceName String @map("device_name")
+  platform   String
+  os         String
+  appVersion String   @map("app_version")
+  pushToken  String   @map("push_token")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  @@map("devices")
+}
+
+model UserSetting {
+  id                   String  @id @default(uuid()) @db.Uuid
+  userId               String  @map("user_ID") @db.Uuid
+  languageId           String  @map("language_id") @db.Uuid
+  currencieId          String  @map("currencie_id") @db.Uuid
+  timezomeId           String  @map("timezone_id") @db.Uuid
+  theme                String
+  notificationsEnabled Boolean @map("notifications_enabled")
+  biometricEnabled     Boolean @map("biometric_enabled")
+  twoFactorEnabled     Boolean @map("two_factor_enabled")
+
+  user      User      @relation(fields: [userId], references: [id])
+  language  Language  @relation(fields: [languageId], references: [id])
+  currencie Currencie @relation(fields: [currencieId], references: [id])
+  timezone  Timezone  @relation(fields: [timezomeId], references: [id])
+
+  @@map("user_settings")
+}
+
+model Language {
+  id           String        @id @default(uuid()) @db.Uuid
+  code         String        @unique
+  name         String
+  userSettings UserSetting[]
+  nativeName   String        @map("native_name")
+  isDefault    Boolean       @map("is_default")
+
+  @@map("languages")
+}
+
+model Currencie {
+  id           String        @id @default(uuid()) @db.Uuid
+  code         String        @unique
+  symbol       String
+  name         String
+  decimals     Int
+  userSettings UserSetting[]
+
+  @@map("currencies")
+}
+
+model Timezone {
+  id           String        @id @default(uuid()) @db.Uuid
+  name         String        @unique
+  utcOffset    String        @map("utc_offset")
+  userSettings UserSetting[]
+
+  @@map("timezones")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// Sin relación formal a User (a propósito): un audit log tiene que poder
+// registrar intentos de request anónimos (userId null) y sobrevivir
+// aunque el usuario se borre, así que es una columna suelta, no un FK.
+// AuditLogInterceptor (src/common/interceptors) es quien escribe acá.
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  method     String
+  path       String
+  statusOk   Boolean  @map("status_ok")
+  ipAddress  String   @map("ip_address")
+  userAgent  String   @map("user_agent") @db.Text
+  message    String?  @db.Text
+  durationMs Int      @map("duration_ms")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

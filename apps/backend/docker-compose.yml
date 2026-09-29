@@ -1,0 +1,33 @@
+# "name" fija el nombre de proyecto de Compose. Sin esto, Compose lo
+# deriva del nombre de la carpeta donde se invoca — y como este backend
+# se movió de una carpeta suelta ("VAL-BACKEND") a ser un workspace del
+# monorepo ("apps/backend"), el nombre de proyecto cambió de
+# "val-backend" a "backend" entre una corrida y otra. Un contenedor
+# creado bajo el proyecto viejo no lo reconoce "docker compose down" del
+# proyecto nuevo (aunque el container_name literal sea el mismo), lo que
+# causó un "Conflict: the container name ... is already in use" la
+# primera vez que se corrió el script desde la nueva ubicación. Fijar el
+# nombre acá evita que vuelva a pasar si la carpeta se mueve de nuevo.
+name: val-backend
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: val-backend-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - val_backend_pgdata:/var/lib/postgresql/data
+      - ./docker/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  val_backend_pgdata:

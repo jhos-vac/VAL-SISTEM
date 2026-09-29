@@ -1,0 +1,275 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/market-cli"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AssetCategorie {
+  id          String @id @default(uuid()) @db.Uuid
+  name        String @unique
+  description String
+
+  assets Asset[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  @@map("asset_categories")
+}
+
+model Asset {
+  id          String  @id @default(uuid()) @db.Uuid
+  categoryId  String  @map("category_id") @db.Uuid
+  symbol      String  @unique
+  name        String
+  slug        String  @unique
+  logoUrl     String  @map("logo_url")
+  description String
+  website     String
+  whitepaper  String
+  isActive    Boolean @default(true) @map("is_active")
+
+  category AssetCategorie @relation(fields: [categoryId], references: [id])
+
+  networks            AssetNetwork[]
+  tradingPairsAsBase  TradingPair[]  @relation("TradingPairBaseAsset")
+  tradingPairsAsQuote TradingPair[]  @relation("TradingPairQuoteAsset")
+
+  markets MarketStatistic[]
+  tag     AssetTagRelation[]
+  new     NewsAsset[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  @@map("assets")
+}
+
+model BlockchainNetwork {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @unique
+  symbol      String
+  chainId     Int      @map("chain_id")
+  explorerUrl String   @map("explorer_url")
+  logoUrl     String   @map("logo_url")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  assets AssetNetwork[]
+
+  @@map("blockchain_networks")
+}
+
+model AssetNetwork {
+  id              String @id @default(uuid()) @db.Uuid
+  assetId         String @map("asset_id") @db.Uuid
+  networkId       String @map("network_id") @db.Uuid
+  contractAddress String @map("contract_address")
+  decimals        Int
+
+  asset   Asset             @relation(fields: [assetId], references: [id])
+  network BlockchainNetwork @relation(fields: [networkId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  @@unique([networkId, assetId])
+  @@map("asset_networks")
+}
+
+model Exchange {
+  id       String           @id @default(uuid()) @db.Uuid
+  name     String           @unique
+  slug     String           @unique
+  website  String
+  logoUrl  String           @map("logo_url")
+  country  String
+  isActive Boolean          @default(true) @map("is_active")
+  markets  ExchangeMarket[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  @@map("exchanges")
+}
+
+model MarketType {
+  id          String           @id @default(uuid()) @db.Uuid
+  name        String           @unique
+  markets     ExchangeMarket[]
+  description String
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  @@map("market_types")
+}
+
+model ExchangeMarket {
+  id             String      @id @default(uuid()) @db.Uuid
+  exchangeId     String      @map("exchange_id") @db.Uuid
+  tradingPairId  String      @map("trading_pair_id") @db.Uuid
+  marketTypeId   String      @map("market_type_id") @db.Uuid
+  exchangeSymbol String      @map("exchange_symbol")
+  isActive       Boolean     @default(true) @map("is_active")
+  exchages       Exchange    @relation(fields: [exchangeId], references: [id])
+  types          MarketType  @relation(fields: [marketTypeId], references: [id])
+  trading        TradingPair @relation(fields: [tradingPairId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  tickers MarketTicker[]
+  history DailyMarketHistory[]
+  rules   ExchangeMarketRules[]
+
+  @@unique([exchangeId, tradingPairId, marketTypeId])
+  @@map("exchange_markets")
+}
+
+model TradingPair {
+  id           String  @id @default(uuid()) @db.Uuid
+  baseAssetId  String  @map("base_asset_id") @db.Uuid
+  quoteAssetId String  @map("quote_asset_id") @db.Uuid
+  symbol       String
+  isActive     Boolean @default(true) @map("is_active")
+
+  baseAsset  Asset @relation("TradingPairBaseAsset", fields: [baseAssetId], references: [id])
+  quoteAsset Asset @relation("TradingPairQuoteAsset", fields: [quoteAssetId], references: [id])
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  exchanges ExchangeMarket[]
+
+  @@unique([baseAssetId, quoteAssetId])
+  @@map("trading_pairs")
+}
+
+model MarketTicker {
+  id                   String   @id @default(uuid()) @db.Uuid
+  exchangeMarketId     String   @map("exchange_market_id") @db.Uuid
+  last_price           Decimal
+  bid                  Decimal
+  ask                  Decimal
+  high_24h             Decimal
+  low_24h              Decimal
+  volume_base          Decimal
+  volume_quote         Decimal
+  price_change         Decimal
+  price_change_percent Decimal
+  open_time            DateTime
+  close_time           DateTime
+  updated_at           DateTime
+
+  exchange ExchangeMarket @relation(fields: [exchangeMarketId], references: [id])
+
+  @@unique([exchangeMarketId])
+  @@map("market_tickers")
+}
+
+model MarketStatistic {
+  id                String   @id @default(uuid()) @db.Uuid
+  assetId           String   @map("asset_id") @db.Uuid
+  marketCap         Decimal  @map("market_cap")
+  circulatingSupply Decimal  @map("circulating_supply")
+  totalSupply       Decimal  @map("total_supply")
+  maxSupply         Decimal  @map("max_supply")
+  marketRank        Int      @map("market_rank")
+  ath               Decimal
+  athDate           DateTime @map("ath_date")
+  atl               Decimal
+  atlDate           DateTime @map("atl_date")
+  updatedAt         DateTime @default(now()) @map("updated_at")
+
+  asset Asset @relation(fields: [assetId], references: [id])
+
+  @@unique([assetId])
+  @@map("market_statistics")
+}
+
+model DailyMarketHistory {
+  id               String   @id @default(uuid()) @db.Uuid
+  exchangeMarketId String   @map("exchange_market_id") @db.Uuid
+  open             Decimal
+  high             Decimal
+  low              Decimal
+  close            Decimal
+  volume           Decimal
+  recordedDate     DateTime @map("recorded_date")
+
+  exchange ExchangeMarket @relation(fields: [exchangeMarketId], references: [id])
+
+  @@unique([exchangeMarketId, recordedDate])
+  @@map("daily_market_history")
+}
+
+model AssetTag {
+  id          String @id @default(uuid()) @db.Uuid
+  name        String @unique
+  description String
+
+  asset AssetTagRelation[]
+
+  @@map("asset_tags")
+}
+
+model AssetTagRelation {
+  id      String @id @default(uuid()) @db.Uuid
+  assetId String @map("asset_id") @db.Uuid
+  tagId   String @map("tag_id") @db.Uuid
+
+  asset Asset    @relation(fields: [assetId], references: [id])
+  tag   AssetTag @relation(fields: [tagId], references: [id])
+
+  @@unique([assetId, tagId])
+  @@map("asset_tag_relations")
+}
+
+model MarketNew {
+  id          String      @id @default(uuid()) @db.Uuid
+  title       String
+  summary     String
+  source      String
+  url         String
+  imageUrl    String      @map("image_url")
+  publishedAt DateTime    @default(now()) @map("published_at")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  asset       NewsAsset[]
+
+  @@map("market_news")
+}
+
+model NewsAsset {
+  id      String @id @default(uuid()) @db.Uuid
+  newsId  String @map("news_id") @db.Uuid
+  assetId String @map("asset_id") @db.Uuid
+
+  new   MarketNew @relation(fields: [newsId], references: [id])
+  asset Asset     @relation(fields: [assetId], references: [id])
+
+  @@unique([newsId, assetId])
+  @@map("news_assets")
+}
+
+model ExchangeMarketRules {
+  id               String  @id @default(uuid()) @db.Uuid
+  exchangeMarketId String  @map("exchange_market_id") @db.Uuid
+  minQty           Decimal @map("min_qty")
+  maxQty           Decimal @map("max_qty")
+  stepSize         Decimal @map("step_size")
+  minPrice         Decimal @map("min_price")
+  tickSize         Decimal @map("tick_size")
+  minNotional      Decimal @map("min_notional")
+
+  exchangeMarket ExchangeMarket @relation(fields: [exchangeMarketId], references: [id])
+
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  @@map("exchange_market_rules")
+}

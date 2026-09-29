@@ -1,0 +1,246 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { PortfolioPrismaService } from '../prisma/portfolio-prisma.service';
+import { MarketService, type AssetSummaryDto } from '../market/market.service';
+import {
+  BinanceAccountClientService,
+  type BinanceTrade,
+} from './binance-account-client.service';
+import { decryptSecret } from '../common/security/encryption.util';
+
+export interface ExchangeAccountForSync {
+  id: string;
+  apiKey: string; // cifrado
+  apiSecret: string; // cifrado
+  isTestnet: boolean;
+}
+
+export interface SyncResult {
+  status: 'completed' | 'failed';
+  recordsProcessed: number;
+  message: string;
+}
+
+interface CostBasis {
+  avgPrice: number;
+  realizedProfit: number;
+}
+
+// Costo promedio ponderado a partir del historial de trades, mismo
+// método que transaction.service.ts usa para el alta manual (ver
+// TransactionService.create): cada compra recalcula el promedio, cada
+// venta lo deja igual y solo acumula ganancia realizada. Se recorre en
+// orden cronológico (BinanceAccountClientService.getMyTrades ya
+// devuelve los trades ordenados por tiempo).
+//
+// Simplificación conocida: si el usuario depositó el activo directo a
+// Binance (no lo compró ahí) o lo movió entre cuentas, esos movimientos
+// no aparecen en /api/v3/myTrades — el cálculo asume que toda la
+// cantidad que se tiene hoy vino de estos trades. Es una aproximación
+// mejor que "precio de mercado al momento del sync" (comportamiento
+// anterior), pero no es contabilidad exacta.
+function computeCostBasisFromTrades(trades: BinanceTrade[]): CostBasis {
+  let quantity = 0;
+  let avgPrice = 0;
+  let realizedProfit = 0;
+
+  for (const t of trades) {
+    if (t.isBuyer) {
+      const newQuantity = quantity + t.qty;
+      avgPrice =
+        newQuantity > 0
+          ? (quantity * avgPrice + t.qty * t.price) / newQuantity
+          : t.price;
+      quantity = newQuantity;
+    } else {
+      const sellQty = Math.min(t.qty, quantity);
+      realizedProfit += sellQty * (t.price - avgPrice);
+      quantity = Math.max(0, quantity - t.qty);
+    }
+  }
+
+  return { avgPrice, realizedProfit };
+}
+
+// Sincroniza los balances reales de una cuenta de Binance conectada hacia
+// la wallet de exchange asociada (ver ExchangeService.connect, que crea
+// esa wallet con walletType: 'exchange'). A diferencia de una wallet
+// manual — donde el usuario arma el historial a mano, ver
+// transaction.service.ts — acá el balance de Binance ES la fuente de
+// verdad para la CANTIDAD: cada corrida borra las posiciones/transacciones
+// previas de esa wallet y las reconstruye desde el snapshot fresco, así
+// nunca queda nada duplicado ni desactualizado. El costo base (avgPrice)
+// y la ganancia realizada, en cambio, se calculan del historial de
+// trades de Binance cuando existe (ver computeCostBasisFromTrades);
+// si un activo no tiene trades (se depositó directo, o es USDT), cae al
+// precio de mercado actual como antes.
+@Injectable()
+export class BinanceAccountSyncService {
+  private readonly logger = new Logger(BinanceAccountSyncService.name);
+
+  constructor(
+    private readonly prisma: PortfolioPrismaService,
+    private readonly marketService: MarketService,
+    private readonly binanceClient: BinanceAccountClientService,
+  ) {}
+
+  async syncAccount(account: ExchangeAccountForSync): Promise<SyncResult> {
+    const startedAt = new Date();
+
+    try {
+      const apiKey = decryptSecret(account.apiKey);
+      const apiSecret = decryptSecret(account.apiSecret);
+      const snapshot = await this.binanceClient.getAccountSnapshot(
+        apiKey,
+        apiSecret,
+        account.isTestnet,
+      );
+
+      const wallet = await this.prisma.wallet.findFirst({
+        where: { exchangeAccountId: account.id },
+      });
+      if (!wallet) {
+        throw new Error(
+          'No existe una wallet asociada a esta cuenta de exchange.',
+        );
+      }
+
+      const catalog = await this.marketService.getAssets();
+      const bySymbol = new Map(catalog.map((a) => [a.symbol, a]));
+
+      const matched: Array<{ quantity: number; asset: AssetSummaryDto }> = [];
+      let skipped = 0;
+      for (const balance of snapshot.balances) {
+        const asset = bySymbol.get(balance.asset);
+        if (asset) {
+          matched.push({ quantity: balance.total, asset });
+        } else {
+          skipped++;
+        }
+      }
+
+      const prices = await this.marketService.getPricesByAssetIds(
+        matched.map((m) => m.asset.id),
+      );
+
+      // Historial de trades por activo (para costo base real) — USDT es
+      // la moneda de cotización de todos los pares del catálogo, así que
+      // no tiene un par "USDTUSDT" contra el cual buscar trades: su
+      // costo base es siempre 1:1 por definición.
+      const tradesByAssetId = new Map<string, BinanceTrade[]>();
+      for (const { asset } of matched) {
+        if (asset.symbol === 'USDT') continue;
+        const trades = await this.binanceClient.getMyTrades(
+          apiKey,
+          apiSecret,
+          `${asset.symbol}USDT`,
+          account.isTestnet,
+        );
+        if (trades.length > 0) tradesByAssetId.set(asset.id, trades);
+      }
+
+      const transactionTypes = await this.prisma.transactionType.findMany({
+        where: { code: { in: ['buy', 'sell'] } },
+      });
+      const typeIdByCode = new Map(transactionTypes.map((t) => [t.code, t.id]));
+
+      await this.prisma.$transaction(async (tx) => {
+        const existingPositions = await tx.assetPosition.findMany({
+          where: { walletId: wallet.id },
+          select: { id: true },
+        });
+        const positionIds = existingPositions.map((p) => p.id);
+        if (positionIds.length > 0) {
+          await tx.transaction.deleteMany({
+            where: { assetPositionId: { in: positionIds } },
+          });
+          await tx.assetPosition.deleteMany({ where: { walletId: wallet.id } });
+        }
+
+        for (const { quantity, asset } of matched) {
+          const marketPrice = prices.get(asset.id)?.price ?? 0;
+          const trades = tradesByAssetId.get(asset.id);
+          const costBasis =
+            asset.symbol === 'USDT'
+              ? { avgPrice: 1, realizedProfit: 0 }
+              : trades
+                ? computeCostBasisFromTrades(trades)
+                : { avgPrice: marketPrice, realizedProfit: 0 };
+
+          const position = await tx.assetPosition.create({
+            data: {
+              walletId: wallet.id,
+              assetId: asset.id,
+              quantity,
+              avgPrice: costBasis.avgPrice,
+              realizedProfit: costBasis.realizedProfit,
+              unrealizedProfit: 0,
+            },
+          });
+
+          // Además de la posición, se deja el historial de trades como
+          // transacciones individuales (source real, no solo el
+          // agregado) — así /transactions también muestra las compras y
+          // ventas reales hechas en Binance, no solo el resultado neto.
+          // No se guarda el orderId de Binance en exchangeOrderId (esa
+          // columna es @db.Uuid y el orderId de Binance es numérico, no
+          // un UUID) — queda como referencia en notes en su lugar.
+          if (trades && trades.length > 0) {
+            const rows = trades
+              .filter((t) => typeIdByCode.has(t.isBuyer ? 'buy' : 'sell'))
+              .map((t) => ({
+                assetPositionId: position.id,
+                transactionTypeId: typeIdByCode.get(
+                  t.isBuyer ? 'buy' : 'sell',
+                )!,
+                quantity: t.qty,
+                price: t.price,
+                fee: t.commission,
+                total: t.quoteQty,
+                notes: `Binance order ${t.orderId} (comisión en ${t.commissionAsset})`,
+                executedAt: new Date(t.time),
+              }));
+            if (rows.length > 0) {
+              await tx.transaction.createMany({ data: rows });
+            }
+          }
+        }
+      });
+
+      const withHistory = [...tradesByAssetId.keys()].length;
+      const message =
+        skipped > 0
+          ? `${matched.length} activo(s) sincronizado(s) (${withHistory} con historial de trades real), ${skipped} fuera del catálogo actual (se omitieron).`
+          : `${matched.length} activo(s) sincronizado(s) (${withHistory} con historial de trades real).`;
+
+      await this.prisma.syncHistory.create({
+        data: {
+          exchangeAccountId: account.id,
+          status: 'completed',
+          startedAt,
+          finishedAt: new Date(),
+          recordsProcessed: matched.length,
+          message,
+        },
+      });
+
+      return { status: 'completed', recordsProcessed: matched.length, message };
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Error desconocido al sincronizar.';
+      this.logger.error(`Sync de cuenta ${account.id} falló: ${message}`);
+      await this.prisma.syncHistory.create({
+        data: {
+          exchangeAccountId: account.id,
+          status: 'failed',
+          startedAt,
+          finishedAt: new Date(),
+          recordsProcessed: 0,
+          message,
+        },
+      });
+      return { status: 'failed', recordsProcessed: 0, message };
+    }
+  }
+}

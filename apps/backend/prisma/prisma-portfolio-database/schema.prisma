@@ -1,0 +1,238 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/portfolio-cli"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Portfolio {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  name         String
+  description  String
+  baseCurrency String   @map("base_currency")
+  isDefault    Boolean  @default(false) @map("is_default")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @map("updated_at")
+  wallets      Wallet[]
+
+  investmentGoals        InvestmentGoal[]
+  portfolioSnapshots     PortfolioSnapshot[]
+  portfolioAssetSummaries PortfolioAssetSummary[]
+
+  @@map("portfolios")
+}
+
+model ExchangeAccount {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  exchangeId  String   @map("exchange_id") @db.Uuid
+  accountName String   @map("account_name")
+  apiKey      String   @map("api_key")
+  apiSecret   String   @map("api_secret")
+  isTestnet   Boolean  @default(false) @map("is_testnet")
+  syncEnabled Boolean  @default(true) @map("sync_enabled")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+  wallets     Wallet[]
+
+  @@map("exchange_accounts")
+}
+
+model Wallet {
+  id                String   @id @default(uuid()) @db.Uuid
+  portfolioId       String   @map("portfolio_id") @db.Uuid
+  exchangeAccountId String?  @map("exchange_account_id") @db.Uuid
+  walletName        String   @map("wallet_name")
+  walletType        String   @map("wallet_type")
+  address           String   @unique
+  network           String
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @map("updated_at")
+
+  portfolio       Portfolio        @relation(fields: [portfolioId], references: [id])
+  exchangeAccount ExchangeAccount? @relation(fields: [exchangeAccountId], references: [id])
+  assetPositions  AssetPosition[]
+
+  transfersFrom Transfer[] @relation("TransferFrom")
+  transfersTo   Transfer[] @relation("TransferTo")
+
+  @@map("wallets")
+}
+
+model AssetPosition {
+  id               String   @id @default(uuid()) @db.Uuid
+  walletId         String   @map("wallet_id") @db.Uuid
+  assetId          String   @map("asset_id") @db.Uuid
+  quantity         Float
+  avgPrice         Float    @map("avg_price")
+  realizedProfit   Float    @map("realized_profit")
+  unrealizedProfit Float    @map("unrealized_profit")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @map("updated_at")
+
+  wallet       Wallet        @relation(fields: [walletId], references: [id])
+  transactions Transaction[]
+
+  @@unique([walletId, assetId])
+  @@map("asset_positions")
+}
+
+model TransactionType {
+  id          String @id @default(uuid()) @db.Uuid
+  code        String @unique
+  name        String @unique
+  description String
+
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @default(now()) @map("updated_at")
+  transactions Transaction[]
+
+  @@map("transaction_types")
+}
+
+model Transaction {
+  id                String   @id @default(uuid()) @db.Uuid
+  assetPositionId   String   @map("asset_position_id") @db.Uuid
+  transactionTypeId String   @map("transaction_type_id") @db.Uuid
+  exchangeOrderId   String?  @map("exchange_order_id") @db.Uuid
+  quantity          Float
+  price             Float
+  fee               Float
+  total             Float
+  notes             String?
+  executedAt        DateTime @map("executed_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  assetPosition   AssetPosition   @relation(fields: [assetPositionId], references: [id])
+  transactionType TransactionType @relation(fields: [transactionTypeId], references: [id])
+
+  @@map("transactions")
+}
+
+model Transfer {
+  id           String   @id @default(uuid()) @db.Uuid
+  fromWalletId String   @map("from_wallet_id") @db.Uuid
+  toWalletId   String   @map("to_wallet_id") @db.Uuid
+  assetId      String   @map("asset_id") @db.Uuid
+  quantity     Float
+  fee          Float
+  transferAt   DateTime @map("executed_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  fromWallet Wallet @relation("TransferFrom", fields: [fromWalletId], references: [id])
+  toWallet   Wallet @relation("TransferTo", fields: [toWalletId], references: [id])
+
+  @@map("transfers")
+}
+
+model Watchlist {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  name      String
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @default(now()) @map("updated_at")
+  assets    WatchListAsset[]
+
+  @@map("watchlists")
+}
+
+model WatchListAsset {
+  id          String   @id @default(uuid()) @db.Uuid
+  watchlistId String   @map("watchlist_id") @db.Uuid
+  assetId     String   @map("asset_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  watchlist Watchlist @relation(fields: [watchlistId], references: [id])
+
+  @@unique([watchlistId, assetId])
+  @@map("watchlist_assets")
+}
+
+model InvestmentGoal {
+  id             String   @id @default(uuid()) @db.Uuid
+  portfolioId    String   @map("portfolio_id") @db.Uuid
+  assetId        String   @map("asset_id") @db.Uuid
+  targetPrice    Float    @map("target_price")
+  targetQuantity Float    @map("target_quantity")
+  targetValue    Float    @map("target_value")
+  deadline       DateTime @map("deadline")
+  isCompleted    Boolean  @default(false) @map("is_completed")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @map("updated_at")
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id])
+
+  @@map("investment_goals")
+}
+
+model PortfolioSnapshot {
+  id              String   @id @default(uuid()) @db.Uuid
+  portfolioId     String   @map("portfolio_id") @db.Uuid
+  totalValue      Float    @map("total_value")
+  investmentValue Float    @map("investment_value")
+  profit          Float    @map("profit")
+  profitPercent   Float    @map("profit_percent")
+  snapshotDate    DateTime @map("snapshot_date")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  portfolio Portfolio                @relation(fields: [portfolioId], references: [id])
+  items     PortfolioSnapshotItems[]
+
+  @@unique([portfolioId, snapshotDate])
+  @@map("portfolio_snapshots")
+}
+
+model PortfolioSnapshotItems {
+  id         String @id @default(uuid()) @db.Uuid
+  snapshotId String @map("snapshot_id") @db.Uuid
+  assetId    String @map("asset_id") @db.Uuid
+  quantity   Float
+  value      Float
+  allocation Float
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  portfolioSnapshot PortfolioSnapshot @relation(fields: [snapshotId], references: [id])
+
+  @@unique([snapshotId, assetId])
+  @@map("portfolio_snapshot_items")
+}
+
+model PortfolioAssetSummary {
+  id               String @id @default(uuid()) @db.Uuid
+  portfolioId      String @map("portfolio_id") @db.Uuid
+  assetId          String @map("asset_id") @db.Uuid
+  totalQuantity    Float  @map("total_quantity")
+  averageCost      Float  @map("average_cost")
+  currentValue     Float  @map("current_value")
+  invested         Float
+  unrealizedProfit Float  @map("unrealized_profit")
+  realizedProfit   Float  @map("realized_profit")
+
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id])
+
+  @@unique([portfolioId, assetId])
+  @@map("portfolio_asset_summaries")
+}
+
+model SyncHistory {
+  id                String   @id @default(uuid()) @db.Uuid
+  exchangeAccountId String   @map("exchange_account_id") @db.Uuid
+  status            String
+  startedAt         DateTime @map("started_at")
+  finishedAt        DateTime @map("finished_at")
+  recordsProcessed  Int      @map("records_processed")
+  message           String?
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@map("sync_history")
+}
