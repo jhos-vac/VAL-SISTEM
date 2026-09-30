@@ -6,7 +6,14 @@ import {
 } from '@nestjs/common';
 import { MarketPrismaService } from '../prisma/market-prisma.service';
 
-const BINANCE_TICKER_24H_URL = 'https://api.binance.com/api/v3/ticker/24hr';
+// El segundo host es el espejo oficial de solo datos de mercado: se usa
+// si api.binance.com rechaza la región del servidor (HTTP 451/403).
+const BINANCE_TICKER_24H_URLS = [
+  'https://api.binance.com/api/v3/ticker/24hr',
+  'https://data-api.binance.vision/api/v3/ticker/24hr',
+];
+// Binance acepta como máximo 100 símbolos por request en este endpoint.
+const SYMBOLS_PER_REQUEST = 100;
 const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 min
 
 interface BinanceTicker24h {
@@ -87,21 +94,25 @@ export class BinanceTickerSyncService implements OnModuleInit, OnModuleDestroy {
       }
 
       const bySymbol = new Map(markets.map((m) => [m.exchangeSymbol, m]));
-      const symbolsParam = encodeURIComponent(
-        JSON.stringify([...bySymbol.keys()]),
-      );
-
-      const res = await fetch(
-        `${BINANCE_TICKER_24H_URL}?symbols=${symbolsParam}`,
-      );
-      if (!res.ok) {
-        this.logger.error(
-          `Binance respondió ${res.status} al pedir tickers públicos`,
-        );
-        return { synced: 0, skipped: bySymbol.size };
+      const symbolList = [...bySymbol.keys()];
+      const tickers: BinanceTicker24h[] = [];
+      for (let i = 0; i < symbolList.length; i += SYMBOLS_PER_REQUEST) {
+        const chunk = symbolList.slice(i, i + SYMBOLS_PER_REQUEST);
+        const symbolsParam = encodeURIComponent(JSON.stringify(chunk));
+        let ok = false;
+        for (const baseUrl of BINANCE_TICKER_24H_URLS) {
+          const res = await fetch(`${baseUrl}?symbols=${symbolsParam}`);
+          if (res.ok) {
+            tickers.push(...((await res.json()) as BinanceTicker24h[]));
+            ok = true;
+            break;
+          }
+          this.logger.error(
+            `Binance respondió ${res.status} al pedir tickers públicos (${baseUrl})`,
+          );
+        }
+        if (!ok) return { synced: 0, skipped: bySymbol.size };
       }
-
-      const tickers = (await res.json()) as BinanceTicker24h[];
       let synced = 0;
 
       for (const t of tickers) {

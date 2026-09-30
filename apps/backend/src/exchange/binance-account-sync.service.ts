@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PortfolioPrismaService } from '../prisma/portfolio-prisma.service';
 import { MarketService, type AssetSummaryDto } from '../market/market.service';
+import { BinanceTickerSyncService } from '../market/binance-ticker-sync.service';
 import {
   BinanceAccountClientService,
   type BinanceTrade,
@@ -80,6 +81,7 @@ export class BinanceAccountSyncService {
   constructor(
     private readonly prisma: PortfolioPrismaService,
     private readonly marketService: MarketService,
+    private readonly tickerSync: BinanceTickerSyncService,
     private readonly binanceClient: BinanceAccountClientService,
   ) {}
 
@@ -102,6 +104,18 @@ export class BinanceAccountSyncService {
         throw new Error(
           'No existe una wallet asociada a esta cuenta de exchange.',
         );
+      }
+
+      // Toda moneda con balance que todavía no esté en el catálogo se
+      // registra sola (con su par contra USDT si Binance lo tiene). Si se
+      // creó alguna, se traen sus precios ya mismo para que la posición
+      // no quede en 0 hasta la próxima corrida periódica del sync de
+      // precios.
+      const newlyRegistered = await this.marketService.ensureAssets(
+        snapshot.balances.map((b) => b.asset),
+      );
+      if (newlyRegistered.length > 0) {
+        await this.tickerSync.syncAll();
       }
 
       const catalog = await this.marketService.getAssets();
@@ -129,6 +143,8 @@ export class BinanceAccountSyncService {
       const tradesByAssetId = new Map<string, BinanceTrade[]>();
       for (const { asset } of matched) {
         if (asset.symbol === 'USDT') continue;
+        // Sin precio = sin par contra USDT, no hay historial que pedir.
+        if (!prices.has(asset.id)) continue;
         const trades = await this.binanceClient.getMyTrades(
           apiKey,
           apiSecret,
@@ -207,10 +223,13 @@ export class BinanceAccountSyncService {
       });
 
       const withHistory = [...tradesByAssetId.keys()].length;
-      const message =
-        skipped > 0
-          ? `${matched.length} activo(s) sincronizado(s) (${withHistory} con historial de trades real), ${skipped} fuera del catálogo actual (se omitieron).`
-          : `${matched.length} activo(s) sincronizado(s) (${withHistory} con historial de trades real).`;
+      const registeredNote =
+        newlyRegistered.length > 0
+          ? `, ${newlyRegistered.length} moneda(s) nueva(s) registrada(s) automáticamente`
+          : '';
+      const skippedNote =
+        skipped > 0 ? `, ${skipped} omitida(s) por estar desactivadas` : '';
+      const message = `${matched.length} activo(s) sincronizado(s) (${withHistory} con historial de trades real)${registeredNote}${skippedNote}.`;
 
       await this.prisma.syncHistory.create({
         data: {

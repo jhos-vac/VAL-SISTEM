@@ -6,6 +6,6 @@ import { BinanceTickerSyncService } from './binance-ticker-sync.service';
 @Module({
   controllers: [MarketController],
   providers: [MarketService, BinanceTickerSyncService],
-  exports: [MarketService],
+  exports: [MarketService, BinanceTickerSyncService],
 })
 export class MarketModule {}
