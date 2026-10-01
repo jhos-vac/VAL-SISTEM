@@ -7,14 +7,12 @@
 // Automation siguen sin construir, así que esas pantallas se quedan con
 // mock-data.ts hasta que existan de verdad.
 
-// Sin barra final: NEXT_PUBLIC_API_URL a veces queda pegado con un "/"
-// al final (typo al configurarlo en Vercel/Render) y, como abajo se arma
-// la URL con `${API_BASE_URL}${path}` y los paths ya empiezan con "/",
-// eso generaba peticiones con doble barra (.../com//auth/login) que el
-// backend no reconoce y devuelve 404.
-const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000"
-).replace(/\/+$/, "");
+// Todas las llamadas van a /backend-api/* (mismo dominio que la web); el
+// servidor de Next las reenvía al backend real — ver `rewrites` en
+// next.config.ts. Esto mantiene la cookie de sesión como cookie de primera
+// parte; llamando directo al dominio del backend, el navegador no la
+// enviaba y cada recarga de página mandaba al login.
+const API_BASE_URL = "/backend-api";
 
 export class ApiError extends Error {
   constructor(

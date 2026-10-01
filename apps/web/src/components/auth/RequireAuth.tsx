@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
 
@@ -12,6 +12,14 @@ import { useAuthStore } from "@/store/auth-store";
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const status = useAuthStore((s) => s.status);
   const router = useRouter();
+  const [slow, setSlow] = useState(false);
+
+  // El backend gratuito se duerme tras 15 min sin uso y tarda hasta ~1 min
+  // en despertar: se avisa para que no parezca que la página se colgó.
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), 6000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -21,8 +29,13 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
 
   if (status === "idle" || status === "unauthenticated") {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-background text-sm text-text-muted">
-        Cargando sesión…
+      <div className="flex min-h-dvh flex-col items-center justify-center gap-1 bg-background px-6 text-center text-sm text-text-muted">
+        <span>Cargando sesión…</span>
+        {slow ? (
+          <span className="text-xs">
+            El servidor estaba dormido y está despertando; puede tardar hasta 1 minuto.
+          </span>
+        ) : null}
       </div>
     );
   }

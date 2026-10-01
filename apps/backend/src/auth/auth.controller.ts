@@ -61,11 +61,16 @@ export class AuthController {
       secure: this.config.get('COOKIE_SECURE') === 'true',
       sameSite: 'lax',
       expires: expiresAt,
-      path: '/auth',
+      // '/' (no '/auth'): la web llama al backend a través del proxy
+      // /backend-api/auth/..., así que el path de la cookie tiene que cubrir
+      // ese prefijo para que el navegador la envíe.
+      path: '/',
     });
   }
 
   private clearRefreshCookie(res: Response): void {
+    res.clearCookie(REFRESH_COOKIE_NAME, { path: '/' });
+    // Cookie vieja de versiones anteriores (path '/auth').
     res.clearCookie(REFRESH_COOKIE_NAME, { path: '/auth' });
   }
 

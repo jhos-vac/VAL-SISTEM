@@ -58,17 +58,29 @@ export async function resetPassword(input: { token: string; newPassword: string 
 // llamada autenticada devuelve 401 (ver requestWithAuth más abajo). Si no
 // hay cookie válida, simplemente deja la sesión en "unauthenticated" —
 // no es un error, es el estado normal de un visitante sin sesión.
+const REFRESH_MAX_ATTEMPTS = 4;
+const REFRESH_RETRY_DELAY_MS = 4000;
+
 export async function refreshSession(): Promise<string | null> {
-  try {
-    const session = await request<SessionResponse>("/auth/refresh", {
-      method: "POST",
-    });
-    useAuthStore.getState().setSession(session.user, session.accessToken);
-    return session.accessToken;
-  } catch {
-    useAuthStore.getState().clearSession();
-    return null;
+  for (let attempt = 1; attempt <= REFRESH_MAX_ATTEMPTS; attempt++) {
+    try {
+      const session = await request<SessionResponse>("/auth/refresh", {
+        method: "POST",
+      });
+      useAuthStore.getState().setSession(session.user, session.accessToken);
+      return session.accessToken;
+    } catch (err) {
+      // Un 4xx (sin cookie, token vencido o revocado) es definitivo: no hay
+      // sesión que recuperar. Un fallo de red o un 5xx/504 suele ser el
+      // backend gratuito de Render despertando (tarda hasta ~1 min tras
+      // estar inactivo): se reintenta en vez de mandar al login.
+      const definitive = err instanceof ApiError && err.status >= 400 && err.status < 500;
+      if (definitive || attempt === REFRESH_MAX_ATTEMPTS) break;
+      await new Promise((resolve) => setTimeout(resolve, REFRESH_RETRY_DELAY_MS));
+    }
   }
+  useAuthStore.getState().clearSession();
+  return null;
 }
 
 export async function logout(): Promise<void> {
