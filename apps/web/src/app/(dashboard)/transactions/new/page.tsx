@@ -31,7 +31,7 @@ type FormOutput = z.output<typeof schema>;
 export default function NewTransactionPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { portfolio, hasNone, isLoading: loadingPortfolio } = useDefaultPortfolio();
+  const { portfolio, hasNone, isAggregate, isLoading: loadingPortfolio } = useDefaultPortfolio();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const {
     register,
@@ -43,7 +43,7 @@ export default function NewTransactionPage() {
   });
 
   async function onSubmit(values: FormOutput) {
-    if (!portfolio) return;
+    if (!portfolio || isAggregate) return;
     setSubmitError(null);
     try {
       const wallet = await getOrCreateDefaultWallet(portfolio.id);
@@ -58,10 +58,10 @@ export default function NewTransactionPage() {
         // <input type="date"> da "YYYY-MM-DD" — se completa a ISO 8601.
         executedAt: new Date(values.executedAt).toISOString(),
       });
-      await queryClient.invalidateQueries({ queryKey: ["positions", portfolio.id] });
-      await queryClient.invalidateQueries({ queryKey: ["portfolio-summary", portfolio.id] });
-      await queryClient.invalidateQueries({ queryKey: ["portfolio-allocation", portfolio.id] });
-      await queryClient.invalidateQueries({ queryKey: ["transactions", portfolio.id] });
+      await queryClient.invalidateQueries({ queryKey: ["positions"] });
+      await queryClient.invalidateQueries({ queryKey: ["portfolio-summary"] });
+      await queryClient.invalidateQueries({ queryKey: ["portfolio-allocation"] });
+      await queryClient.invalidateQueries({ queryKey: ["transactions"] });
       router.push("/transactions");
     } catch {
       setSubmitError(
@@ -79,6 +79,17 @@ export default function NewTransactionPage() {
       <Card>
         <p className="text-sm text-text-secondary">
           Creá un portafolio antes de registrar una operación.
+        </p>
+      </Card>
+    );
+  }
+
+  if (isAggregate) {
+    return (
+      <Card>
+        <p className="text-sm text-text-secondary">
+          La vista General solo muestra el total de todos tus portafolios. Elegí un
+          portafolio específico en el selector de arriba para registrar una operación.
         </p>
       </Card>
     );

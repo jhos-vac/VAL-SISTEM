@@ -168,7 +168,10 @@ export class TransactionService {
     portfolioId: string,
     filters: TransactionFilters,
   ): Promise<TransactionDto[]> {
-    await this.portfolioService.findOwnedOrThrow(userId, portfolioId);
+    const portfolioIds = await this.portfolioService.resolveScope(
+      userId,
+      portfolioId,
+    );
 
     let assetId: string | undefined;
     if (filters.assetSymbol) {
@@ -182,7 +185,7 @@ export class TransactionService {
     const transactions = await this.prisma.transaction.findMany({
       where: {
         assetPosition: {
-          wallet: { portfolioId },
+          wallet: { portfolioId: { in: portfolioIds } },
           ...(assetId ? { assetId } : {}),
         },
         ...(filters.type ? { transactionType: { code: filters.type } } : {}),
@@ -195,7 +198,10 @@ export class TransactionService {
             }
           : {}),
       },
-      include: { assetPosition: true, transactionType: true },
+      include: {
+        assetPosition: { include: { wallet: true } },
+        transactionType: true,
+      },
       orderBy: { executedAt: 'desc' },
     });
 
@@ -208,7 +214,7 @@ export class TransactionService {
 
     return transactions.map((t) => ({
       id: t.id,
-      portfolioId,
+      portfolioId: t.assetPosition.wallet.portfolioId,
       assetSymbol: assets.get(t.assetPosition.assetId)?.symbol ?? '???',
       type: t.transactionType.code,
       quantity: t.quantity,

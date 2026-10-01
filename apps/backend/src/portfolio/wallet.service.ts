@@ -88,9 +88,12 @@ export class WalletService {
     portfolioId: string,
     includeInactive = false,
   ): Promise<WalletDto[]> {
-    await this.portfolioService.findOwnedOrThrow(userId, portfolioId);
+    const ids = await this.portfolioService.resolveScope(userId, portfolioId);
     const wallets = await this.prisma.wallet.findMany({
-      where: { portfolioId, ...(includeInactive ? {} : { isActive: true }) },
+      where: {
+        portfolioId: { in: ids },
+        ...(includeInactive ? {} : { isActive: true }),
+      },
       orderBy: { createdAt: 'asc' },
     });
     return wallets.map((w) => this.toDto(w));

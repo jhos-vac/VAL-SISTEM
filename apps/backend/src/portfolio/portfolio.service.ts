@@ -4,6 +4,11 @@ import { MarketService } from '../market/market.service';
 import { CreatePortfolioDto } from './dto/create-portfolio.dto';
 import { UpdatePortfolioDto } from './dto/update-portfolio.dto';
 
+// Id especial para pedir la vista "General": suma de todos los portafolios
+// del usuario. Es virtual (no existe como fila), así que nunca queda
+// desactualizada ni duplica datos.
+export const ALL_PORTFOLIOS = 'all';
+
 export interface PortfolioDto {
   id: string;
   name: string;
@@ -89,6 +94,21 @@ export class PortfolioService {
     return portfolio;
   }
 
+  // Traduce el portafolio pedido a la lista de ids sobre los que consultar:
+  // un solo portafolio (con chequeo de ownership) o, para 'all', todos los
+  // del usuario.
+  async resolveScope(userId: string, portfolioId: string): Promise<string[]> {
+    if (portfolioId === ALL_PORTFOLIOS) {
+      const rows = await this.prisma.portfolio.findMany({
+        where: { userId },
+        select: { id: true },
+      });
+      return rows.map((r) => r.id);
+    }
+    await this.findOwnedOrThrow(userId, portfolioId);
+    return [portfolioId];
+  }
+
   async create(userId: string, dto: CreatePortfolioDto): Promise<PortfolioDto> {
     const isFirst =
       (await this.prisma.portfolio.count({ where: { userId } })) === 0;
@@ -169,8 +189,8 @@ export class PortfolioService {
     userId: string,
     portfolioId: string,
   ): Promise<EnrichedPosition[]> {
-    await this.findOwnedOrThrow(userId, portfolioId);
-    return this.getEnrichedPositionsForSnapshot(portfolioId);
+    const ids = await this.resolveScope(userId, portfolioId);
+    return this.getEnrichedPositionsForPortfolios(ids);
   }
 
   // Igual que getEnrichedPositions pero SIN el chequeo de ownership — lo
@@ -180,9 +200,16 @@ export class PortfolioService {
   async getEnrichedPositionsForSnapshot(
     portfolioId: string,
   ): Promise<EnrichedPosition[]> {
+    return this.getEnrichedPositionsForPortfolios([portfolioId]);
+  }
+
+  private async getEnrichedPositionsForPortfolios(
+    portfolioIds: string[],
+  ): Promise<EnrichedPosition[]> {
+    if (portfolioIds.length === 0) return [];
     const positions = await this.prisma.assetPosition.findMany({
       where: {
-        wallet: { portfolioId, isActive: true },
+        wallet: { portfolioId: { in: portfolioIds }, isActive: true },
         quantity: { gt: 0 },
       },
       include: { wallet: true },
@@ -204,7 +231,7 @@ export class PortfolioService {
 
       return {
         id: p.id,
-        portfolioId,
+        portfolioId: p.wallet.portfolioId,
         walletId: p.walletId,
         assetId: p.assetId,
         assetSymbol: asset?.symbol ?? priceInfo?.symbol ?? '???',
@@ -299,12 +326,23 @@ export class PortfolioService {
     const positions = await this.getEnrichedPositions(userId, portfolioId);
     const totalValue = positions.reduce((sum, p) => sum + p.currentValue, 0);
 
-    return positions
-      .map((p) => ({
-        assetSymbol: p.assetSymbol,
-        assetName: p.assetName,
-        valueInBaseCurrency: p.currentValue,
-        percentage: totalValue > 0 ? (p.currentValue / totalValue) * 100 : 0,
+    // La misma moneda puede estar en varias wallets (Spot, Earn, otro
+    // portafolio): en la distribución se agrupa por moneda.
+    const bySymbol = new Map<string, { name: string; value: number }>();
+    for (const p of positions) {
+      const prev = bySymbol.get(p.assetSymbol);
+      bySymbol.set(p.assetSymbol, {
+        name: p.assetName,
+        value: (prev?.value ?? 0) + p.currentValue,
+      });
+    }
+
+    return [...bySymbol.entries()]
+      .map(([assetSymbol, v]) => ({
+        assetSymbol,
+        assetName: v.name,
+        valueInBaseCurrency: v.value,
+        percentage: totalValue > 0 ? (v.value / totalValue) * 100 : 0,
       }))
       .sort((a, b) => b.valueInBaseCurrency - a.valueInBaseCurrency);
   }
@@ -321,19 +359,26 @@ export class PortfolioService {
     portfolioId: string,
     days = 400,
   ): Promise<PerformancePointDto[]> {
-    await this.findOwnedOrThrow(userId, portfolioId);
+    const ids = await this.resolveScope(userId, portfolioId);
 
     const since = new Date();
     since.setUTCDate(since.getUTCDate() - days);
 
     const snapshots = await this.prisma.portfolioSnapshot.findMany({
-      where: { portfolioId, snapshotDate: { gte: since } },
+      where: { portfolioId: { in: ids }, snapshotDate: { gte: since } },
       orderBy: { snapshotDate: 'asc' },
     });
 
-    return snapshots.map((s) => ({
-      date: s.snapshotDate.toISOString().slice(0, 10),
-      totalValue: s.totalValue,
+    // En la vista General se suman los snapshots de todos los portafolios
+    // por fecha (con un solo portafolio queda igual que antes).
+    const byDate = new Map<string, number>();
+    for (const s of snapshots) {
+      const date = s.snapshotDate.toISOString().slice(0, 10);
+      byDate.set(date, (byDate.get(date) ?? 0) + s.totalValue);
+    }
+    return [...byDate.entries()].map(([date, totalValue]) => ({
+      date,
+      totalValue,
     }));
   }
 }

@@ -8,6 +8,10 @@ import {
 } from './binance-account-client.service';
 import { decryptSecret } from '../common/security/encryption.util';
 
+// Sufijo de la dirección interna de la wallet de Simple Earn de una cuenta
+// (la de Spot es `binance:<id>`, la de Earn `binance:<id>:earn`).
+const EARN_ADDRESS_SUFFIX = ':earn';
+
 export interface ExchangeAccountForSync {
   id: string;
   apiKey: string; // cifrado
@@ -97,23 +101,44 @@ export class BinanceAccountSyncService {
         account.isTestnet,
       );
 
-      const wallet = await this.prisma.wallet.findFirst({
-        where: { exchangeAccountId: account.id },
+      const spotWallet = await this.prisma.wallet.findFirst({
+        where: {
+          exchangeAccountId: account.id,
+          NOT: { address: { endsWith: EARN_ADDRESS_SUFFIX } },
+        },
       });
-      if (!wallet) {
+      if (!spotWallet) {
         throw new Error(
           'No existe una wallet asociada a esta cuenta de exchange.',
         );
       }
+
+      // Binance muestra el dinero en Simple Earn (ahorro flexible) como
+      // monedas con prefijo "LD": LDBNB es BNB, LDUSDT es USDT. Se separan
+      // de los saldos Spot y se guardan en su propia wallet "Earn", con la
+      // moneda real (BNB, USDT), para ver dónde está cada cosa.
+      const aliases = await this.marketService.resolveEarnAliases(
+        snapshot.balances.map((b) => b.asset),
+      );
+      const spotBalances = new Map<string, number>();
+      const earnBalances = new Map<string, number>();
+      for (const b of snapshot.balances) {
+        const alias = aliases.get(b.asset);
+        const target = alias ? earnBalances : spotBalances;
+        const symbol = alias ?? b.asset;
+        target.set(symbol, (target.get(symbol) ?? 0) + b.total);
+      }
+      await this.marketService.deactivateAssets([...aliases.keys()]);
 
       // Toda moneda con balance que todavía no esté en el catálogo se
       // registra sola (con su par contra USDT si Binance lo tiene). Si se
       // creó alguna, se traen sus precios ya mismo para que la posición
       // no quede en 0 hasta la próxima corrida periódica del sync de
       // precios.
-      const newlyRegistered = await this.marketService.ensureAssets(
-        snapshot.balances.map((b) => b.asset),
-      );
+      const newlyRegistered = await this.marketService.ensureAssets([
+        ...spotBalances.keys(),
+        ...earnBalances.keys(),
+      ]);
       if (newlyRegistered.length > 0) {
         await this.tickerSync.syncAll();
       }
@@ -121,29 +146,34 @@ export class BinanceAccountSyncService {
       const catalog = await this.marketService.getAssets();
       const bySymbol = new Map(catalog.map((a) => [a.symbol, a]));
 
-      const matched: Array<{ quantity: number; asset: AssetSummaryDto }> = [];
       let skipped = 0;
-      for (const balance of snapshot.balances) {
-        const asset = bySymbol.get(balance.asset);
-        if (asset) {
-          matched.push({ quantity: balance.total, asset });
-        } else {
-          skipped++;
+      const toMatched = (balances: Map<string, number>) => {
+        const out: Array<{ quantity: number; asset: AssetSummaryDto }> = [];
+        for (const [symbol, quantity] of balances) {
+          const asset = bySymbol.get(symbol);
+          if (asset) out.push({ quantity, asset });
+          else skipped++;
         }
-      }
+        return out;
+      };
+      const spotMatched = toMatched(spotBalances);
+      const earnMatched = toMatched(earnBalances);
 
-      const prices = await this.marketService.getPricesByAssetIds(
-        matched.map((m) => m.asset.id),
+      const allAssets = new Map(
+        [...spotMatched, ...earnMatched].map((m) => [m.asset.id, m.asset]),
       );
+      const prices = await this.marketService.getPricesByAssetIds([
+        ...allAssets.keys(),
+      ]);
 
       // Historial de trades por activo (para costo base real) — USDT es
       // la moneda de cotización de todos los pares del catálogo, así que
       // no tiene un par "USDTUSDT" contra el cual buscar trades: su
-      // costo base es siempre 1:1 por definición.
+      // costo base es siempre 1:1 por definición. Sin precio = sin par
+      // contra USDT, tampoco hay historial que pedir.
       const tradesByAssetId = new Map<string, BinanceTrade[]>();
-      for (const { asset } of matched) {
+      for (const asset of allAssets.values()) {
         if (asset.symbol === 'USDT') continue;
-        // Sin precio = sin par contra USDT, no hay historial que pedir.
         if (!prices.has(asset.id)) continue;
         const trades = await this.binanceClient.getMyTrades(
           apiKey,
@@ -159,77 +189,137 @@ export class BinanceAccountSyncService {
       });
       const typeIdByCode = new Map(transactionTypes.map((t) => [t.code, t.id]));
 
-      await this.prisma.$transaction(async (tx) => {
-        const existingPositions = await tx.assetPosition.findMany({
-          where: { walletId: wallet.id },
-          select: { id: true },
-        });
-        const positionIds = existingPositions.map((p) => p.id);
-        if (positionIds.length > 0) {
-          await tx.transaction.deleteMany({
-            where: { assetPositionId: { in: positionIds } },
+      // Wallet de Earn: se crea solo cuando hay saldo en Simple Earn. Si
+      // ya existía y ahora está vacía, igual se reconstruye (queda sin
+      // posiciones).
+      const baseName = spotWallet.walletName.replace(/ · Spot$/, '');
+      let earnWallet = await this.prisma.wallet.findFirst({
+        where: {
+          exchangeAccountId: account.id,
+          address: { endsWith: EARN_ADDRESS_SUFFIX },
+        },
+      });
+      if (earnMatched.length > 0) {
+        if (!spotWallet.walletName.endsWith(' · Spot')) {
+          await this.prisma.wallet.update({
+            where: { id: spotWallet.id },
+            data: { walletName: `${baseName} · Spot` },
           });
-          await tx.assetPosition.deleteMany({ where: { walletId: wallet.id } });
         }
+        earnWallet ??= await this.prisma.wallet.create({
+          data: {
+            portfolioId: spotWallet.portfolioId,
+            exchangeAccountId: account.id,
+            walletName: `${baseName} · Earn`,
+            walletType: 'exchange',
+            address: `${spotWallet.address}${EARN_ADDRESS_SUFFIX}`,
+            network: spotWallet.network,
+          },
+        });
+      }
 
-        for (const { quantity, asset } of matched) {
-          const marketPrice = prices.get(asset.id)?.price ?? 0;
-          const trades = tradesByAssetId.get(asset.id);
-          const costBasis =
-            asset.symbol === 'USDT'
-              ? { avgPrice: 1, realizedProfit: 0 }
-              : trades
-                ? computeCostBasisFromTrades(trades)
-                : { avgPrice: marketPrice, realizedProfit: 0 };
+      const spotSymbols = new Set(spotBalances.keys());
 
-          const position = await tx.assetPosition.create({
-            data: {
-              walletId: wallet.id,
-              assetId: asset.id,
-              quantity,
-              avgPrice: costBasis.avgPrice,
-              realizedProfit: costBasis.realizedProfit,
-              unrealizedProfit: 0,
-            },
+      await this.prisma.$transaction(async (tx) => {
+        const rebuildWallet = async (
+          walletId: string,
+          matched: Array<{ quantity: number; asset: AssetSummaryDto }>,
+          carriesHistory: (asset: AssetSummaryDto) => boolean,
+        ) => {
+          const existingPositions = await tx.assetPosition.findMany({
+            where: { walletId },
+            select: { id: true },
           });
+          const positionIds = existingPositions.map((p) => p.id);
+          if (positionIds.length > 0) {
+            await tx.transaction.deleteMany({
+              where: { assetPositionId: { in: positionIds } },
+            });
+            await tx.assetPosition.deleteMany({ where: { walletId } });
+          }
 
-          // Además de la posición, se deja el historial de trades como
-          // transacciones individuales (source real, no solo el
-          // agregado) — así /transactions también muestra las compras y
-          // ventas reales hechas en Binance, no solo el resultado neto.
-          // No se guarda el orderId de Binance en exchangeOrderId (esa
-          // columna es @db.Uuid y el orderId de Binance es numérico, no
-          // un UUID) — queda como referencia en notes en su lugar.
-          if (trades && trades.length > 0) {
-            const rows = trades
-              .filter((t) => typeIdByCode.has(t.isBuyer ? 'buy' : 'sell'))
-              .map((t) => ({
-                assetPositionId: position.id,
-                transactionTypeId: typeIdByCode.get(
-                  t.isBuyer ? 'buy' : 'sell',
-                )!,
-                quantity: t.qty,
-                price: t.price,
-                fee: t.commission,
-                total: t.quoteQty,
-                notes: `Binance order ${t.orderId} (comisión en ${t.commissionAsset})`,
-                executedAt: new Date(t.time),
-              }));
-            if (rows.length > 0) {
-              await tx.transaction.createMany({ data: rows });
+          for (const { quantity, asset } of matched) {
+            const marketPrice = prices.get(asset.id)?.price ?? 0;
+            const trades = tradesByAssetId.get(asset.id);
+            // El costo base (precio promedio) es el mismo para la moneda
+            // en cualquier wallet, pero la ganancia realizada y el
+            // historial de operaciones se cuentan una sola vez: en la
+            // wallet que "lleva" el historial.
+            const withHistory = carriesHistory(asset);
+            const computed =
+              asset.symbol === 'USDT'
+                ? { avgPrice: 1, realizedProfit: 0 }
+                : trades
+                  ? computeCostBasisFromTrades(trades)
+                  : { avgPrice: marketPrice, realizedProfit: 0 };
+            const costBasis = {
+              avgPrice: computed.avgPrice,
+              realizedProfit: withHistory ? computed.realizedProfit : 0,
+            };
+
+            const position = await tx.assetPosition.create({
+              data: {
+                walletId,
+                assetId: asset.id,
+                quantity,
+                avgPrice: costBasis.avgPrice,
+                realizedProfit: costBasis.realizedProfit,
+                unrealizedProfit: 0,
+              },
+            });
+
+            // Además de la posición, se deja el historial de trades como
+            // transacciones individuales (source real, no solo el
+            // agregado) — así /transactions también muestra las compras y
+            // ventas reales hechas en Binance, no solo el resultado neto.
+            // No se guarda el orderId de Binance en exchangeOrderId (esa
+            // columna es @db.Uuid y el orderId de Binance es numérico, no
+            // un UUID) — queda como referencia en notes en su lugar.
+            if (withHistory && trades && trades.length > 0) {
+              const rows = trades
+                .filter((t) => typeIdByCode.has(t.isBuyer ? 'buy' : 'sell'))
+                .map((t) => ({
+                  assetPositionId: position.id,
+                  transactionTypeId: typeIdByCode.get(
+                    t.isBuyer ? 'buy' : 'sell',
+                  )!,
+                  quantity: t.qty,
+                  price: t.price,
+                  fee: t.commission,
+                  total: t.quoteQty,
+                  notes: `Binance order ${t.orderId} (comisión en ${t.commissionAsset})`,
+                  executedAt: new Date(t.time),
+                }));
+              if (rows.length > 0) {
+                await tx.transaction.createMany({ data: rows });
+              }
             }
           }
+        };
+
+        await rebuildWallet(spotWallet.id, spotMatched, () => true);
+        if (earnWallet) {
+          // Si la moneda solo está en Earn (no en Spot), esta wallet lleva
+          // su historial y su ganancia realizada.
+          await rebuildWallet(
+            earnWallet.id,
+            earnMatched,
+            (asset) => !spotSymbols.has(asset.symbol),
+          );
         }
       });
 
-      const withHistory = [...tradesByAssetId.keys()].length;
+      const totalPositions = spotMatched.length + earnMatched.length;
+      const withHistory = tradesByAssetId.size;
       const registeredNote =
         newlyRegistered.length > 0
           ? `, ${newlyRegistered.length} moneda(s) nueva(s) registrada(s) automáticamente`
           : '';
       const skippedNote =
         skipped > 0 ? `, ${skipped} omitida(s) por estar desactivadas` : '';
-      const message = `${matched.length} activo(s) sincronizado(s) (${withHistory} con historial de trades real)${registeredNote}${skippedNote}.`;
+      const earnNote =
+        earnMatched.length > 0 ? `, ${earnMatched.length} en Simple Earn` : '';
+      const message = `${totalPositions} activo(s) sincronizado(s)${earnNote} (${withHistory} con historial de trades real)${registeredNote}${skippedNote}.`;
 
       await this.prisma.syncHistory.create({
         data: {
@@ -237,12 +327,12 @@ export class BinanceAccountSyncService {
           status: 'completed',
           startedAt,
           finishedAt: new Date(),
-          recordsProcessed: matched.length,
+          recordsProcessed: totalPositions,
           message,
         },
       });
 
-      return { status: 'completed', recordsProcessed: matched.length, message };
+      return { status: 'completed', recordsProcessed: totalPositions, message };
     } catch (err) {
       const message =
         err instanceof Error

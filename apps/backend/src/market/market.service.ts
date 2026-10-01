@@ -57,21 +57,68 @@ export class MarketService {
   // qué monedas nuevas tienen precio. Si no se puede consultar, devuelve un
   // Set vacío: las monedas se registran igual, solo quedan sin precio hasta
   // que exista el par.
+  private usdtSymbolsCache?: { at: number; symbols: Set<string> };
+
   private async fetchBinanceUsdtSymbols(): Promise<Set<string>> {
+    const cached = this.usdtSymbolsCache;
+    if (cached && Date.now() - cached.at < 5 * 60 * 1000) {
+      return cached.symbols;
+    }
     for (const url of BINANCE_PRICE_URLS) {
       try {
         const res = await fetch(url);
         if (!res.ok) continue;
         const data = (await res.json()) as Array<{ symbol: string }>;
-        return new Set(
+        const symbols = new Set(
           data.map((d) => d.symbol).filter((sym) => sym.endsWith('USDT')),
         );
+        this.usdtSymbolsCache = { at: Date.now(), symbols };
+        return symbols;
       } catch {
         // Se intenta con el siguiente host.
       }
     }
     this.logger.warn('No se pudo consultar la lista de pares de Binance');
     return new Set();
+  }
+
+  // Binance muestra el dinero que el usuario tiene en Simple Earn (ahorro
+  // flexible) como monedas con prefijo "LD": LDBNB es BNB, LDUSDT es USDT.
+  // No son monedas reales (no tienen par de trading), así que se
+  // reconocen y se devuelven como alias -> moneda real, para sumarlas a
+  // su moneda de verdad. Un símbolo que SÍ tiene su propio par contra USDT
+  // (p.ej. LDO, el token de Lido) nunca se trata como alias.
+  async resolveEarnAliases(symbols: string[]): Promise<Map<string, string>> {
+    const candidates = symbols.filter(
+      (s) => s.startsWith('LD') && s.length > 2,
+    );
+    const aliases = new Map<string, string>();
+    if (candidates.length === 0) return aliases;
+
+    const pairs = await this.fetchBinanceUsdtSymbols();
+    // Sin la lista de pares no se puede distinguir un alias de una moneda
+    // real: mejor no tocar nada que fusionar mal.
+    if (pairs.size === 0) return aliases;
+
+    for (const symbol of candidates) {
+      if (pairs.has(`${symbol}USDT`)) continue;
+      const base = symbol.slice(2);
+      if (base === 'USDT' || pairs.has(`${base}USDT`)) {
+        aliases.set(symbol, base);
+      }
+    }
+    return aliases;
+  }
+
+  // Desactiva monedas del catálogo (p.ej. los alias LD que una versión
+  // anterior registró por error). No se borran: así no se recrean y no se
+  // pierde ninguna referencia existente.
+  async deactivateAssets(symbols: string[]): Promise<void> {
+    if (symbols.length === 0) return;
+    await this.prisma.asset.updateMany({
+      where: { symbol: { in: symbols }, isActive: true },
+      data: { isActive: false },
+    });
   }
 
   // Registra automáticamente en el catálogo toda moneda que todavía no

@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { IconBell, IconRefresh, IconSearch } from "@/components/icons";
 import { formatCurrency, formatPercent } from "@val-sistem/shared";
 import { fetchPortfolios, fetchSummary } from "@/lib/portfolio-client";
-import { useDefaultPortfolio } from "@/hooks/useDefaultPortfolio";
+import { ALL_PORTFOLIOS_ID, useDefaultPortfolio } from "@/hooks/useDefaultPortfolio";
 import { usePortfolioSelectionStore } from "@/store/portfolio-selection-store";
 import { useAuthStore } from "@/store/auth-store";
 import { logout } from "@/lib/auth-client";
@@ -20,7 +20,7 @@ function initials(firstName: string, lastName: string): string {
 // cuál es "el" portafolio activo para toda la app (RFW-03) —
 // ver usePortfolioSelectionStore / useDefaultPortfolio.
 export function Topbar() {
-  const { portfolio, hasNone } = useDefaultPortfolio();
+  const { portfolio, hasNone, canAggregate } = useDefaultPortfolio();
   const setActivePortfolioId = usePortfolioSelectionStore((s) => s.setActivePortfolioId);
   const { data: portfolios } = useQuery({ queryKey: ["portfolios"], queryFn: fetchPortfolios });
   const { data: summary } = useQuery({
@@ -49,6 +49,9 @@ export function Topbar() {
             value={portfolio?.id}
             onChange={(e) => setActivePortfolioId(e.target.value)}
           >
+            {canAggregate ? (
+              <option value={ALL_PORTFOLIOS_ID}>General (todos)</option>
+            ) : null}
             {portfolios.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
