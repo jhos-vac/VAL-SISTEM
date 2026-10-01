@@ -140,4 +140,121 @@ export class BinanceAccountClientService {
       return [];
     }
   }
+  // Llamada firmada genérica para los endpoints /sapi de Binance (fondos,
+  // Simple Earn). Tira un Error con el motivo si Binance la rechaza.
+  private async signedSapi<T>(
+    method: 'GET' | 'POST',
+    path: string,
+    params: Record<string, string | number>,
+    apiKey: string,
+    apiSecret: string,
+  ): Promise<T> {
+    const query = new URLSearchParams({
+      ...Object.fromEntries(
+        Object.entries(params).map(([k, v]) => [k, String(v)]),
+      ),
+      timestamp: String(Date.now()),
+      recvWindow: '5000',
+    }).toString();
+    const signature = this.sign(query, apiSecret);
+
+    const res = await fetch(
+      `${MAINNET_BASE_URL}${path}?${query}&signature=${signature}`,
+      { method, headers: { 'X-MBX-APIKEY': apiKey } },
+    );
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`Binance respondió ${res.status} en ${path}: ${body}`);
+    }
+    return (await res.json()) as T;
+  }
+
+  // Billetera de Fondos (Funding) — la que usa P2P, pagos y las
+  // transferencias desde otras apps. NO aparece en /api/v3/account.
+  // Devuelve null si no se pudo leer (testnet no la tiene, o la API key no
+  // tiene permiso): el sync sigue sin ella en vez de fallar completo.
+  async getFundingBalances(
+    apiKey: string,
+    apiSecret: string,
+    isTestnet = false,
+  ): Promise<Array<{ asset: string; total: number }> | null> {
+    if (isTestnet) return null;
+    try {
+      const rows = await this.signedSapi<
+        Array<{
+          asset: string;
+          free: string;
+          locked: string;
+          freeze: string;
+        }>
+      >('POST', '/sapi/v1/asset/get-funding-asset', {}, apiKey, apiSecret);
+      return rows
+        .map((r) => ({
+          asset: r.asset,
+          total: Number(r.free) + Number(r.locked) + Number(r.freeze),
+        }))
+        .filter((b) => b.total > 0);
+    } catch {
+      return null;
+    }
+  }
+
+  // Simple Earn completo: ahorro flexible + productos con plazo fijo
+  // (Locked). /api/v3/account solo muestra el flexible (como monedas
+  // "LD…") y nada del plazo fijo, por eso el total de Earn no coincidía
+  // con el de la app de Binance. Devuelve null si el flexible no se pudo
+  // leer (el sync cae al método anterior basado en las monedas LD); si solo
+  // falla el plazo fijo, se devuelve el flexible igual.
+  async getEarnBalances(
+    apiKey: string,
+    apiSecret: string,
+    isTestnet = false,
+  ): Promise<Array<{ asset: string; total: number }> | null> {
+    if (isTestnet) return null;
+
+    const totals = new Map<string, number>();
+    const add = (asset: string, amount: number) => {
+      if (amount > 0) totals.set(asset, (totals.get(asset) ?? 0) + amount);
+    };
+
+    const PAGE_SIZE = 100;
+    const MAX_PAGES = 10;
+
+    const fetchAll = async <R>(path: string): Promise<R[]> => {
+      const all: R[] = [];
+      for (let current = 1; current <= MAX_PAGES; current++) {
+        const page = await this.signedSapi<{ rows?: R[]; total?: number }>(
+          'GET',
+          path,
+          { current, size: PAGE_SIZE },
+          apiKey,
+          apiSecret,
+        );
+        const rows = page.rows ?? [];
+        all.push(...rows);
+        if (rows.length < PAGE_SIZE || all.length >= (page.total ?? 0)) break;
+      }
+      return all;
+    };
+
+    try {
+      const flexible = await fetchAll<{ asset: string; totalAmount: string }>(
+        '/sapi/v1/simple-earn/flexible/position',
+      );
+      for (const r of flexible) add(r.asset, Number(r.totalAmount));
+    } catch {
+      return null;
+    }
+
+    try {
+      const locked = await fetchAll<{ asset: string; amount: string }>(
+        '/sapi/v1/simple-earn/locked/position',
+      );
+      for (const r of locked) add(r.asset, Number(r.amount));
+    } catch {
+      // Sin plazo fijo (o sin permiso para leerlo): se sigue con el flexible.
+    }
+
+    return [...totals].map(([asset, total]) => ({ asset, total }));
+  }
 }

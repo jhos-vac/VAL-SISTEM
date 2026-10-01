@@ -11,6 +11,7 @@ import { decryptSecret } from '../common/security/encryption.util';
 // Sufijo de la dirección interna de la wallet de Simple Earn de una cuenta
 // (la de Spot es `binance:<id>`, la de Earn `binance:<id>:earn`).
 const EARN_ADDRESS_SUFFIX = ':earn';
+const FUNDING_ADDRESS_SUFFIX = ':funding';
 
 export interface ExchangeAccountForSync {
   id: string;
@@ -104,7 +105,10 @@ export class BinanceAccountSyncService {
       const spotWallet = await this.prisma.wallet.findFirst({
         where: {
           exchangeAccountId: account.id,
-          NOT: { address: { endsWith: EARN_ADDRESS_SUFFIX } },
+          NOT: [
+            { address: { endsWith: EARN_ADDRESS_SUFFIX } },
+            { address: { endsWith: FUNDING_ADDRESS_SUFFIX } },
+          ],
         },
       });
       if (!spotWallet) {
@@ -113,20 +117,49 @@ export class BinanceAccountSyncService {
         );
       }
 
-      // Binance muestra el dinero en Simple Earn (ahorro flexible) como
-      // monedas con prefijo "LD": LDBNB es BNB, LDUSDT es USDT. Se separan
-      // de los saldos Spot y se guardan en su propia wallet "Earn", con la
-      // moneda real (BNB, USDT), para ver dónde está cada cosa.
+      // Binance reparte el dinero en varios lugares y cada uno se guarda en
+      // su propia wallet, igual que en la app de Binance:
+      //  - Spot: /api/v3/account.
+      //  - Earn: Simple Earn flexible + plazo fijo, desde los endpoints de
+      //    Earn. Si no se pueden leer, se cae a las monedas con prefijo
+      //    "LD" de Spot (LDBNB es BNB, LDUSDT es USDT), que solo cubren el
+      //    flexible.
+      //  - Fondos (Funding): billetera de P2P/pagos, que NO aparece en Spot.
+      const [earnFromApi, fundingFromApi] = await Promise.all([
+        this.binanceClient.getEarnBalances(
+          apiKey,
+          apiSecret,
+          account.isTestnet,
+        ),
+        this.binanceClient.getFundingBalances(
+          apiKey,
+          apiSecret,
+          account.isTestnet,
+        ),
+      ]);
+
       const aliases = await this.marketService.resolveEarnAliases(
         snapshot.balances.map((b) => b.asset),
       );
       const spotBalances = new Map<string, number>();
       const earnBalances = new Map<string, number>();
+      const fundingBalances = new Map<string, number>();
+      const addTo = (m: Map<string, number>, symbol: string, qty: number) =>
+        m.set(symbol, (m.get(symbol) ?? 0) + qty);
+
       for (const b of snapshot.balances) {
         const alias = aliases.get(b.asset);
-        const target = alias ? earnBalances : spotBalances;
-        const symbol = alias ?? b.asset;
-        target.set(symbol, (target.get(symbol) ?? 0) + b.total);
+        if (!alias) {
+          addTo(spotBalances, b.asset, b.total);
+        } else if (!earnFromApi) {
+          addTo(earnBalances, alias, b.total);
+        }
+        // Con los datos reales de Earn disponibles, las monedas LD se
+        // ignoran: ya están contadas ahí (si no, se duplicarían).
+      }
+      for (const b of earnFromApi ?? []) addTo(earnBalances, b.asset, b.total);
+      for (const b of fundingFromApi ?? []) {
+        addTo(fundingBalances, b.asset, b.total);
       }
       await this.marketService.deactivateAssets([...aliases.keys()]);
 
@@ -138,6 +171,7 @@ export class BinanceAccountSyncService {
       const newlyRegistered = await this.marketService.ensureAssets([
         ...spotBalances.keys(),
         ...earnBalances.keys(),
+        ...fundingBalances.keys(),
       ]);
       if (newlyRegistered.length > 0) {
         await this.tickerSync.syncAll();
@@ -158,9 +192,13 @@ export class BinanceAccountSyncService {
       };
       const spotMatched = toMatched(spotBalances);
       const earnMatched = toMatched(earnBalances);
+      const fundingMatched = toMatched(fundingBalances);
 
       const allAssets = new Map(
-        [...spotMatched, ...earnMatched].map((m) => [m.asset.id, m.asset]),
+        [...spotMatched, ...earnMatched, ...fundingMatched].map((m) => [
+          m.asset.id,
+          m.asset,
+        ]),
       );
       const prices = await this.marketService.getPricesByAssetIds([
         ...allAssets.keys(),
@@ -189,36 +227,64 @@ export class BinanceAccountSyncService {
       });
       const typeIdByCode = new Map(transactionTypes.map((t) => [t.code, t.id]));
 
-      // Wallet de Earn: se crea solo cuando hay saldo en Simple Earn. Si
-      // ya existía y ahora está vacía, igual se reconstruye (queda sin
+      // Wallets de Earn y Fondos: se crean solo cuando hay saldo ahí. Si ya
+      // existían y ahora están vacías, igual se reconstruyen (quedan sin
       // posiciones).
       const baseName = spotWallet.walletName.replace(/ · Spot$/, '');
-      let earnWallet = await this.prisma.wallet.findFirst({
-        where: {
-          exchangeAccountId: account.id,
-          address: { endsWith: EARN_ADDRESS_SUFFIX },
+      const subWalletDefs = [
+        {
+          suffix: EARN_ADDRESS_SUFFIX,
+          label: 'Earn',
+          matched: earnMatched,
         },
-      });
-      if (earnMatched.length > 0) {
-        if (!spotWallet.walletName.endsWith(' · Spot')) {
-          await this.prisma.wallet.update({
-            where: { id: spotWallet.id },
-            data: { walletName: `${baseName} · Spot` },
-          });
-        }
-        earnWallet ??= await this.prisma.wallet.create({
-          data: {
-            portfolioId: spotWallet.portfolioId,
+        {
+          suffix: FUNDING_ADDRESS_SUFFIX,
+          label: 'Fondos',
+          matched: fundingMatched,
+        },
+      ];
+      const subWallets: Array<{
+        walletId: string;
+        matched: typeof earnMatched;
+        suffix: string;
+      }> = [];
+      for (const def of subWalletDefs) {
+        let wallet = await this.prisma.wallet.findFirst({
+          where: {
             exchangeAccountId: account.id,
-            walletName: `${baseName} · Earn`,
-            walletType: 'exchange',
-            address: `${spotWallet.address}${EARN_ADDRESS_SUFFIX}`,
-            network: spotWallet.network,
+            address: { endsWith: def.suffix },
           },
         });
+        if (def.matched.length > 0) {
+          if (!spotWallet.walletName.endsWith(' · Spot')) {
+            spotWallet.walletName = `${baseName} · Spot`;
+            await this.prisma.wallet.update({
+              where: { id: spotWallet.id },
+              data: { walletName: spotWallet.walletName },
+            });
+          }
+          wallet ??= await this.prisma.wallet.create({
+            data: {
+              portfolioId: spotWallet.portfolioId,
+              exchangeAccountId: account.id,
+              walletName: `${baseName} · ${def.label}`,
+              walletType: 'exchange',
+              address: `${spotWallet.address}${def.suffix}`,
+              network: spotWallet.network,
+            },
+          });
+        }
+        if (wallet) {
+          subWallets.push({
+            walletId: wallet.id,
+            matched: def.matched,
+            suffix: def.suffix,
+          });
+        }
       }
 
       const spotSymbols = new Set(spotBalances.keys());
+      const earnSymbols = new Set(earnBalances.keys());
 
       await this.prisma.$transaction(async (tx) => {
         const rebuildWallet = async (
@@ -298,18 +364,21 @@ export class BinanceAccountSyncService {
         };
 
         await rebuildWallet(spotWallet.id, spotMatched, () => true);
-        if (earnWallet) {
-          // Si la moneda solo está en Earn (no en Spot), esta wallet lleva
-          // su historial y su ganancia realizada.
-          await rebuildWallet(
-            earnWallet.id,
-            earnMatched,
-            (asset) => !spotSymbols.has(asset.symbol),
+        for (const sub of subWallets) {
+          // Si la moneda solo está en Earn/Fondos (no en Spot), esa wallet
+          // lleva su historial y su ganancia realizada, para contarlos una
+          // sola vez.
+          await rebuildWallet(sub.walletId, sub.matched, (asset) =>
+            sub.suffix === EARN_ADDRESS_SUFFIX
+              ? !spotSymbols.has(asset.symbol)
+              : !spotSymbols.has(asset.symbol) &&
+                !earnSymbols.has(asset.symbol),
           );
         }
       });
 
-      const totalPositions = spotMatched.length + earnMatched.length;
+      const totalPositions =
+        spotMatched.length + earnMatched.length + fundingMatched.length;
       const withHistory = tradesByAssetId.size;
       const registeredNote =
         newlyRegistered.length > 0
@@ -319,7 +388,9 @@ export class BinanceAccountSyncService {
         skipped > 0 ? `, ${skipped} omitida(s) por estar desactivadas` : '';
       const earnNote =
         earnMatched.length > 0 ? `, ${earnMatched.length} en Simple Earn` : '';
-      const message = `${totalPositions} activo(s) sincronizado(s)${earnNote} (${withHistory} con historial de trades real)${registeredNote}${skippedNote}.`;
+      const fundingNote =
+        fundingMatched.length > 0 ? `, ${fundingMatched.length} en Fondos` : '';
+      const message = `${totalPositions} activo(s) sincronizado(s)${earnNote}${fundingNote} (${withHistory} con historial de trades real)${registeredNote}${skippedNote}.`;
 
       await this.prisma.syncHistory.create({
         data: {
