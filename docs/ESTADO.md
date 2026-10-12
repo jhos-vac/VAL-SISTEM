@@ -11,9 +11,9 @@ septiembre. La lista de actividades vive en la Bitácora del MVP.
 | --- | --- |
 | Backend (NestJS + Prisma) | 25/25 actividades del MVP |
 | Web (Next.js 16) | 11/11 pantallas del MVP |
-| Móvil (Expo) | 0/7 — `apps/mobile` no existe todavía |
+| Móvil (Expo) | 5/7 en código. Faltan pruebas en simulador y push de punta a punta, que necesitan cuentas de EAS/Apple/Google |
 | QA | Pruebas unitarias del cálculo financiero ✅; resto pendiente |
-| Infra | Monorepo, despliegue y CI ✅; staging, EAS, Sentry pendientes |
+| Infra | Monorepo, despliegue, CI y config de EAS ✅; staging, credenciales EAS y Sentry pendientes |
 
 ## Arquitectura
 
@@ -21,6 +21,7 @@ septiembre. La lista de actividades vive en la Bitácora del MVP.
 VAL-SISTEM/
 ├─ apps/
 │  ├─ web/        Next.js 16 + TypeScript + Tailwind + TanStack Query
+│  ├─ mobile/     Expo SDK 57 + Expo Router (ver apps/mobile/README.md)
 │  └─ backend/    NestJS + Prisma, 4 bases por dominio
 │                 (user, market, portfolio, automation)
 ├─ packages/
@@ -71,6 +72,24 @@ backend juntos (`scripts/dev-reset.js`).
   - Scripts nuevos: `lint:check` (backend, sin `--fix`) y `typecheck`
     (backend y web).
   - `next build` verificado en Windows.
+  - **App móvil** (`apps/mobile`):
+    - Login, registro y recuperación.
+    - Desbloqueo con huella o Face ID.
+    - Registro del push token en `/devices`.
+    - Tabs: Inicio, Posiciones, Movimientos, Mercado y Ajustes.
+    - Alta manual de transacciones, selector de portafolio (con "General")
+      y conexión de Binance.
+    - Modo offline con caché persistida y aviso de antigüedad de los datos.
+    - `eas.json` con perfiles development, preview y production.
+  - Backend: con el header `X-Client-Type: mobile`, `login` y `refresh`
+    devuelven el refresh token en el body (sin cookie). Tiene prueba en
+    `auth.controller.spec.ts`.
+  - CI:
+    - Se agrega el job móvil: lint, tipos, 24 tests y bundle de Android e
+      iOS.
+    - Arreglo del typecheck de la web, que fallaba en CI porque
+      `next-env.d.ts` no se versiona; ahora corre `next typegen` antes de
+      `tsc`.
 
 ## Cómo se calcula el costo y la ganancia
 
@@ -111,8 +130,11 @@ Diferencias del sync de Binance (`computeCostBasisFromTrades`):
 
 ### Producto y plataforma
 
-- **App móvil** (Expo): setup, biometría, push token, tabs, push, offline
-  y pruebas en simulador.
+- **App móvil**, lo que necesita tus cuentas:
+  - `npx eas-cli init` (projectId).
+  - Credenciales FCM/APNs.
+  - Development build y prueba en simulador o teléfono.
+  - Confirmar la URL de Render en `apps/mobile/eas.json`.
 - **Pruebas restantes:** componentes (login, alta de exchange,
   transacción), E2E web con Playwright, E2E móvil y sync contra el testnet
   de Binance.

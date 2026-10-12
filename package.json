@@ -13,7 +13,8 @@
     "dev:backend": "turbo run dev --filter=backend",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "dev:mobile": "npm run start --workspace=apps/mobile"
   },
   "devDependencies": {
     "turbo": "^2.5.4"

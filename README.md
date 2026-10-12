@@ -11,6 +11,7 @@ backend (ver `Especificacion_Web_Movil_MVP.md` en el proyecto).
 VAL-SISTEM/
 ├─ apps/
 │  ├─ web/            Next.js + TypeScript + Tailwind (App Router)
+│  ├─ mobile/         Expo (React Native) + Expo Router, ver su README
 │  └─ backend/        NestJS + Prisma (4 bases: user, market, portfolio,
 │                       automation)
 ├─ packages/
@@ -38,6 +39,7 @@ npm run dev
 levanta el backend en http://localhost:3000 y la web en
 http://localhost:3001. Con `npm run dev:no-reset` se conservan los datos.
 
+- `npm run dev:mobile`: app móvil con Expo (ver `apps/mobile/README.md`).
 - `npm run build`: build de producción de todas las apps.
 - `npm run lint` / `npm run typecheck`: por app, vía Turborepo.
 
@@ -45,6 +47,7 @@ http://localhost:3001. Con `npm run dev:no-reset` se conservan los datos.
 
 ```bash
 npm test --workspace=apps/backend
+npm test --workspace=apps/mobile
 ```
 
 El CI de GitHub Actions (`.github/workflows/ci.yml`) corre en cada push a
@@ -52,6 +55,7 @@ El CI de GitHub Actions (`.github/workflows/ci.yml`) corre en cada push a
 
 - **Backend:** lint, tipos, tests y build.
 - **Web:** lint, tipos y build.
+- **Móvil:** lint, tipos, tests y bundle de Android/iOS.
 
 ## Estado actual
 
