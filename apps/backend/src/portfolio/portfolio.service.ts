@@ -3,6 +3,7 @@ import { PortfolioPrismaService } from '../prisma/portfolio-prisma.service';
 import { MarketService } from '../market/market.service';
 import { CreatePortfolioDto } from './dto/create-portfolio.dto';
 import { UpdatePortfolioDto } from './dto/update-portfolio.dto';
+import { summarizePositions, valuePosition } from './cost-basis';
 
 // Id especial para pedir la vista "General": suma de todos los portafolios
 // del usuario. Es virtual (no existe como fila), así que nunca queda
@@ -226,8 +227,11 @@ export class PortfolioService {
     return positions.map((p) => {
       const asset = assets.get(p.assetId);
       const priceInfo = prices.get(p.assetId);
-      const currentPrice = priceInfo?.price ?? p.avgPrice;
-      const currentValue = p.quantity * currentPrice;
+      const { currentPrice, currentValue, unrealizedPnl } = valuePosition(
+        p.quantity,
+        p.avgPrice,
+        priceInfo?.price,
+      );
 
       return {
         id: p.id,
@@ -241,7 +245,7 @@ export class PortfolioService {
         currentPrice,
         currentValue,
         realizedPnl: p.realizedProfit,
-        unrealizedPnl: currentValue - p.quantity * p.avgPrice,
+        unrealizedPnl,
         changePercent24h: priceInfo?.changePercent24h ?? 0,
       };
     });
@@ -287,34 +291,11 @@ export class PortfolioService {
   ): Promise<PortfolioSummaryDto> {
     const positions = await this.getEnrichedPositions(userId, portfolioId);
 
-    const totalValue = positions.reduce((sum, p) => sum + p.currentValue, 0);
-    const totalInvested = positions.reduce(
-      (sum, p) => sum + p.quantity * p.averageCost,
-      0,
-    );
-    const realizedPnl = positions.reduce((sum, p) => sum + p.realizedPnl, 0);
-    const unrealizedPnl = positions.reduce(
-      (sum, p) => sum + p.unrealizedPnl,
-      0,
-    );
-    // Variación 24h del portafolio = promedio de la variación de cada
-    // activo, ponderado por cuánto pesa ese activo en el valor total.
-    const changePercent24h =
-      totalValue > 0
-        ? positions.reduce(
-            (sum, p) =>
-              sum + p.changePercent24h * (p.currentValue / totalValue),
-            0,
-          )
-        : 0;
+    const totals = summarizePositions(positions);
 
     return {
       portfolioId,
-      totalValue,
-      totalInvested,
-      realizedPnl,
-      unrealizedPnl,
-      changePercent24h,
+      ...totals,
       asOf: new Date().toISOString(),
     };
   }

@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (lint, tipos, tests, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backend
+    env:
+      # `prisma generate` solo lee el schema, no se conecta: alcanzan URLs
+      # de mentira para que los prisma.config.ts no queden sin datasource.
+      DATABASE_USER: postgresql://ci:ci@localhost:5432/user
+      DATABASE_MARKET: postgresql://ci:ci@localhost:5432/market
+      DATABASE_PORTFOLIO: postgresql://ci:ci@localhost:5432/portfolio
+      DATABASE_AUTOMATION: postgresql://ci:ci@localhost:5432/automation
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+        working-directory: .
+      - run: npm run db:generate
+      - run: npm run lint:check
+      - run: npm run typecheck
+      - run: npm test -- --ci
+      - run: npm run build
+
+  web:
+    name: Web (lint, tipos, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+        working-directory: .
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build

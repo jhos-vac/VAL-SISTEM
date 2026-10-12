@@ -70,7 +70,10 @@ export class SettingsService {
         symbol: c.symbol,
         name: c.name,
       })),
-      timezones: timezones.map((t) => ({ name: t.name, utcOffset: t.utcOffset })),
+      timezones: timezones.map((t) => ({
+        name: t.name,
+        utcOffset: t.utcOffset,
+      })),
     };
   }
 
@@ -123,13 +126,19 @@ export class SettingsService {
       this.prisma.timezone.findUnique({ where: { name: timezoneName } }),
     ]);
     if (!language) {
-      throw new BadRequestException(`Idioma "${languageCode}" no existe en el catálogo`);
+      throw new BadRequestException(
+        `Idioma "${languageCode}" no existe en el catálogo`,
+      );
     }
     if (!currencie) {
-      throw new BadRequestException(`Moneda "${currencyCode}" no existe en el catálogo`);
+      throw new BadRequestException(
+        `Moneda "${currencyCode}" no existe en el catálogo`,
+      );
     }
     if (!timezone) {
-      throw new BadRequestException(`Zona horaria "${timezoneName}" no existe en el catálogo`);
+      throw new BadRequestException(
+        `Zona horaria "${timezoneName}" no existe en el catálogo`,
+      );
     }
 
     const data = {
@@ -139,14 +148,20 @@ export class SettingsService {
       // "timezome", no "timezone" — ver prisma-user-database/schema.prisma).
       timezomeId: timezone.id,
       theme: dto.theme ?? current.theme,
-      notificationsEnabled: dto.notificationsEnabled ?? current.notificationsEnabled,
+      notificationsEnabled:
+        dto.notificationsEnabled ?? current.notificationsEnabled,
       biometricEnabled: dto.biometricEnabled ?? current.biometricEnabled,
       twoFactorEnabled: dto.twoFactorEnabled ?? current.twoFactorEnabled,
     };
 
-    const existing = await this.prisma.userSetting.findFirst({ where: { userId } });
+    const existing = await this.prisma.userSetting.findFirst({
+      where: { userId },
+    });
     const saved = existing
-      ? await this.prisma.userSetting.update({ where: { id: existing.id }, data })
+      ? await this.prisma.userSetting.update({
+          where: { id: existing.id },
+          data,
+        })
       : await this.prisma.userSetting.create({ data: { userId, ...data } });
 
     return {

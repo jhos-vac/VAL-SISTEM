@@ -7,6 +7,11 @@ import { PortfolioPrismaService } from '../prisma/portfolio-prisma.service';
 import { PortfolioService } from './portfolio.service';
 import { MarketService } from '../market/market.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
+import {
+  applyMovement,
+  InsufficientQuantityError,
+  type PositionState,
+} from './cost-basis';
 
 export interface TransactionDto {
   id: string;
@@ -49,12 +54,7 @@ export class TransactionService {
 
   // Alta manual de compra/venta/transferencia (RFW-08). Mantiene
   // AssetPosition al día con costo promedio ponderado (weighted average
-  // cost) — el mismo método que ya usan las apps de referencia del
-  // proyecto para "trackeo" manual:
-  //  - buy/transfer_in: suma cantidad, recalcula el costo promedio.
-  //  - sell/transfer_out: resta cantidad (falla si no alcanza), el costo
-  //    promedio NO cambia; solo `sell` acumula ganancia realizada
-  //    (transfer_out es solo mover activos, no una venta).
+  // cost) — las reglas están en cost-basis.ts (applyMovement).
   async create(
     userId: string,
     dto: CreateTransactionDto,
@@ -87,38 +87,28 @@ export class TransactionService {
         },
       });
 
-      const isIncrease = dto.type === 'buy' || dto.type === 'transfer_in';
-      let newQuantity: number;
-      let newAvgPrice: number;
-      let realizedProfitDelta = 0;
-
-      if (isIncrease) {
-        newQuantity = (existing?.quantity ?? 0) + dto.quantity;
-        newAvgPrice = existing
-          ? (existing.quantity * existing.avgPrice + dto.quantity * dto.price) /
-            newQuantity
-          : dto.price;
-      } else {
-        if (!existing || existing.quantity < dto.quantity) {
-          throw new BadRequestException(
-            'No hay suficiente cantidad en la posición para esta venta/transferencia',
-          );
+      let next: PositionState;
+      try {
+        next = applyMovement(existing, {
+          type: dto.type,
+          quantity: dto.quantity,
+          price: dto.price,
+          fee,
+        });
+      } catch (err) {
+        if (err instanceof InsufficientQuantityError) {
+          throw new BadRequestException(err.message);
         }
-        newQuantity = existing.quantity - dto.quantity;
-        newAvgPrice = existing.avgPrice;
-        if (dto.type === 'sell') {
-          realizedProfitDelta =
-            dto.quantity * (dto.price - existing.avgPrice) - fee;
-        }
+        throw err;
       }
 
       const position = existing
         ? await tx.assetPosition.update({
             where: { id: existing.id },
             data: {
-              quantity: newQuantity,
-              avgPrice: newAvgPrice,
-              realizedProfit: existing.realizedProfit + realizedProfitDelta,
+              quantity: next.quantity,
+              avgPrice: next.avgPrice,
+              realizedProfit: next.realizedProfit,
               updatedAt: new Date(),
             },
           })
@@ -126,9 +116,9 @@ export class TransactionService {
             data: {
               walletId: dto.walletId,
               assetId: asset.id,
-              quantity: newQuantity,
-              avgPrice: newAvgPrice,
-              realizedProfit: 0,
+              quantity: next.quantity,
+              avgPrice: next.avgPrice,
+              realizedProfit: next.realizedProfit,
               unrealizedProfit: 0,
             },
           });

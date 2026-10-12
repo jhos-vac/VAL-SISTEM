@@ -7,6 +7,7 @@ import {
   type BinanceTrade,
 } from './binance-account-client.service';
 import { decryptSecret } from '../common/security/encryption.util';
+import { computeCostBasisFromTrades } from '../portfolio/cost-basis';
 
 // Sufijo de la dirección interna de la wallet de Simple Earn de una cuenta
 // (la de Spot es `binance:<id>`, la de Earn `binance:<id>:earn`).
@@ -24,47 +25,6 @@ export interface SyncResult {
   status: 'completed' | 'failed';
   recordsProcessed: number;
   message: string;
-}
-
-interface CostBasis {
-  avgPrice: number;
-  realizedProfit: number;
-}
-
-// Costo promedio ponderado a partir del historial de trades, mismo
-// método que transaction.service.ts usa para el alta manual (ver
-// TransactionService.create): cada compra recalcula el promedio, cada
-// venta lo deja igual y solo acumula ganancia realizada. Se recorre en
-// orden cronológico (BinanceAccountClientService.getMyTrades ya
-// devuelve los trades ordenados por tiempo).
-//
-// Simplificación conocida: si el usuario depositó el activo directo a
-// Binance (no lo compró ahí) o lo movió entre cuentas, esos movimientos
-// no aparecen en /api/v3/myTrades — el cálculo asume que toda la
-// cantidad que se tiene hoy vino de estos trades. Es una aproximación
-// mejor que "precio de mercado al momento del sync" (comportamiento
-// anterior), pero no es contabilidad exacta.
-function computeCostBasisFromTrades(trades: BinanceTrade[]): CostBasis {
-  let quantity = 0;
-  let avgPrice = 0;
-  let realizedProfit = 0;
-
-  for (const t of trades) {
-    if (t.isBuyer) {
-      const newQuantity = quantity + t.qty;
-      avgPrice =
-        newQuantity > 0
-          ? (quantity * avgPrice + t.qty * t.price) / newQuantity
-          : t.price;
-      quantity = newQuantity;
-    } else {
-      const sellQty = Math.min(t.qty, quantity);
-      realizedProfit += sellQty * (t.price - avgPrice);
-      quantity = Math.max(0, quantity - t.qty);
-    }
-  }
-
-  return { avgPrice, realizedProfit };
 }
 
 // Sincroniza los balances reales de una cuenta de Binance conectada hacia

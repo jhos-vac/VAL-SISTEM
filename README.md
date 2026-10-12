@@ -1,20 +1,22 @@
 # VAL-SISTEM
 
-Monorepo del cliente web (y, más adelante, móvil) del sistema de
-seguimiento de inversiones en criptomonedas. Consume la API del backend
-[VAL-BACKEND](../VAL-BACKEND) — ningún cliente habla directo con Binance ni
-con las bases de datos (ver `Especificacion_Web_Movil_MVP.md` en el
-proyecto).
+Monorepo del sistema de seguimiento de inversiones en criptomonedas:
+cliente web, backend y, más adelante, la app móvil. Ningún cliente habla
+directo con Binance ni con las bases de datos; todo pasa por la API del
+backend (ver `Especificacion_Web_Movil_MVP.md` en el proyecto).
 
 ## Estructura
 
 ```
 VAL-SISTEM/
 ├─ apps/
-│  └─ web/            Next.js + TypeScript + Tailwind (App Router)
+│  ├─ web/            Next.js + TypeScript + Tailwind (App Router)
+│  └─ backend/        NestJS + Prisma (4 bases: user, market, portfolio,
+│                       automation)
 ├─ packages/
 │  └─ shared/          Tipos TS y utilidades (formato de moneda/porcentaje)
 │                       compartidos entre web y, luego, la app móvil (RN)
+├─ docs/              Estado del proyecto
 ├─ turbo.json           Pipeline de Turborepo (dev/build/lint/typecheck)
 └─ package.json         Workspaces npm (apps/*, packages/*)
 ```
@@ -25,49 +27,33 @@ Tailwind CSS, Recharts (gráficos), monorepo con paquete `shared`.
 
 ## Cómo correrlo
 
-Requiere Node 20+.
+Requiere Node 20+ y Docker (para el Postgres local).
 
 ```bash
 npm install
-cp apps/web/.env.example apps/web/.env.local
-npm run dev:web
+npm run dev
 ```
 
-Abre http://localhost:3000.
+`npm run dev` recrea el Postgres local, migra y siembra las 4 bases, y
+levanta el backend en http://localhost:3000 y la web en
+http://localhost:3001. Con `npm run dev:no-reset` se conservan los datos.
 
-- `npm run dev` — corre todas las apps del monorepo (por ahora solo `web`).
-- `npm run build` — build de producción de todas las apps.
-- `npm run lint` / `npm run typecheck` — por app, vía Turborepo.
+- `npm run build`: build de producción de todas las apps.
+- `npm run lint` / `npm run typecheck`: por app, vía Turborepo.
 
-## Estado actual (24 sept 2026)
+## Pruebas y CI
 
-El backend (VAL-BACKEND) todavía no expone endpoints de negocio (auth,
-portafolios, sync con Binance) — ver `Estado_Backend_VAL-BACKEND.md` en el
-proyecto. Por eso la web está maquetada con datos de ejemplo
-(`apps/web/src/lib/mock-data.ts`) siguiendo la recomendación de la
-especificación: diseñar la UI/UX y los contratos de API primero, e ir
-conectando cada pantalla a su endpoint real a medida que quede listo en el
-backend.
+```bash
+npm test --workspace=apps/backend
+```
 
-Ya construido:
+El CI de GitHub Actions (`.github/workflows/ci.yml`) corre en cada push a
+`main` y en cada PR:
 
-- Estructura de rutas para las 11 pantallas web del MVP (RFW-01 a RFW-11):
-  login/registro/recuperación, dashboard, portafolios, posiciones,
-  transacciones (+ registro manual), mercado, conexión de Binance, ajustes.
-- Dashboard con gráficos (composición por activo, rendimiento histórico)
-  siguiendo la guía de dataviz del proyecto (paleta validada, un solo eje,
-  colores reservados de estado).
-- Cliente API tipado (`apps/web/src/lib/api-client.ts`) con los endpoints
-  esperados ya documentados como comentario, listo para reemplazar los
-  mocks endpoint por endpoint.
-- Sesión en memoria (Zustand) según RNFC-01: el access token nunca toca
-  `localStorage`.
+- **Backend:** lint, tipos, tests y build.
+- **Web:** lint, tipos y build.
 
-Pendiente (ver `Bitacora_MVP_Actividades.md` para la lista completa):
+## Estado actual
 
-- Conectar cada pantalla a su endpoint real a medida que el backend los
-  implemente (empezando por auth y el CRUD de portafolios).
-- Modo oscuro: los gráficos hoy solo usan los tonos de modo claro (ver
-  TODO en `apps/web/src/lib/chart-colors.ts`).
-- Tests (Vitest/Jest + React Testing Library + Playwright, ver
-  `Especificacion_Web_Movil_MVP.md` §12).
+Ver [`docs/ESTADO.md`](docs/ESTADO.md): qué está hecho, cómo se calcula el
+costo y la ganancia, y qué falta.
