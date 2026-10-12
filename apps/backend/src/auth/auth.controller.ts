@@ -23,6 +23,9 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
 const REFRESH_COOKIE_NAME = 'refresh_token';
+// La app móvil se identifica con este header: no maneja cookies, así que
+// recibe el refresh token en el body (y lo guarda en SecureStore).
+const CLIENT_TYPE_HEADER = 'x-client-type';
 
 @Controller('auth')
 export class AuthController {
@@ -49,6 +52,25 @@ export class AuthController {
       throw new UnauthorizedException('Falta el refresh token');
     }
     return token;
+  }
+
+  private isMobileClient(req: Request): boolean {
+    return req.headers[CLIENT_TYPE_HEADER] === 'mobile';
+  }
+
+  // Web: refresh token en cookie httpOnly, nunca en el body (RNFC-01).
+  // Móvil: en el body, sin cookie.
+  private deliverRefreshToken<T extends object>(
+    req: Request,
+    res: Response,
+    session: T & { refreshToken: string; refreshTokenExpiresAt: Date },
+  ) {
+    const { refreshToken, refreshTokenExpiresAt, ...rest } = session;
+    if (this.isMobileClient(req)) {
+      return { ...rest, refreshToken, refreshTokenExpiresAt };
+    }
+    this.setRefreshCookie(res, refreshToken, refreshTokenExpiresAt);
+    return rest;
   }
 
   private setRefreshCookie(
@@ -88,10 +110,8 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { refreshToken, refreshTokenExpiresAt, ...rest } =
-      await this.authService.login(dto, this.requestMeta(req));
-    this.setRefreshCookie(res, refreshToken, refreshTokenExpiresAt);
-    return rest;
+    const session = await this.authService.login(dto, this.requestMeta(req));
+    return this.deliverRefreshToken(req, res, session);
   }
 
   @Public()
@@ -103,10 +123,11 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const rawToken = this.extractRefreshToken(req, dto);
-    const { refreshToken, refreshTokenExpiresAt, ...rest } =
-      await this.authService.refresh(rawToken, this.requestMeta(req));
-    this.setRefreshCookie(res, refreshToken, refreshTokenExpiresAt);
-    return rest;
+    const session = await this.authService.refresh(
+      rawToken,
+      this.requestMeta(req),
+    );
+    return this.deliverRefreshToken(req, res, session);
   }
 
   @Public()
