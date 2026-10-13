@@ -7,6 +7,8 @@ import { PortfolioService } from './portfolio.service';
 import { WalletService } from './wallet.service';
 import { TransactionService } from './transaction.service';
 import { PortfolioSnapshotService } from './portfolio-snapshot.service';
+import { CapitalAssetService } from './capital-asset.service';
+import { CapitalAssetsController } from './capital-assets.controller';
 
 @Module({
   // MarketModule exporta MarketService — Portfolio lo usa para enriquecer
@@ -17,12 +19,14 @@ import { PortfolioSnapshotService } from './portfolio-snapshot.service';
     PortfolioController,
     PositionsController,
     TransactionsController,
+    CapitalAssetsController,
   ],
   providers: [
     PortfolioService,
     WalletService,
     TransactionService,
     PortfolioSnapshotService,
+    CapitalAssetService,
   ],
   exports: [PortfolioService],
 })

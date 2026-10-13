@@ -47,7 +47,11 @@ export interface Portfolio {
 
 export interface PortfolioSummary {
   portfolioId: string;
+  // Incluye las monedas capital (ver capitalValue).
   totalValue: number;
+  // Parte del valor total en monedas capital (p.ej. USDT): no cuenta en
+  // invertido, ganancias ni variación 24h.
+  capitalValue: number;
   totalInvested: number;
   realizedPnl: number;
   unrealizedPnl: number;
@@ -79,6 +83,8 @@ export interface AssetPosition {
   currentValue: number;
   realizedPnl: number;
   unrealizedPnl: number;
+  // Moneda capital del usuario: se muestra sin ganancia.
+  isCapital: boolean;
 }
 
 export type TransactionType = 'buy' | 'sell' | 'transfer_in' | 'transfer_out';

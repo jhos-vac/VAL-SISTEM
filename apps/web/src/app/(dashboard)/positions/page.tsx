@@ -85,7 +85,17 @@ export default function PositionsPage() {
                 <tbody>
                   {group.positions.map((pos) => (
                     <tr key={pos.id} className="border-t border-border-hairline">
-                      <td className="py-2 font-medium">{pos.assetSymbol}</td>
+                      <td className="py-2 font-medium">
+                        {pos.assetSymbol}
+                        {pos.isCapital ? (
+                          <span
+                            title="Moneda capital: no cuenta en la ganancia"
+                            className="ml-2 rounded-full bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary"
+                          >
+                            Capital
+                          </span>
+                        ) : null}
+                      </td>
                       <td className="py-2 text-right tabular-nums">
                         {formatQuantity(pos.quantity)}
                       </td>
@@ -99,7 +109,13 @@ export default function PositionsPage() {
                         {formatCurrency(pos.currentValue)}
                       </td>
                       <td className="py-2 text-right">
-                        <PnlValue value={pos.unrealizedPnl} />
+                        {pos.isCapital ? (
+                          <span className="text-text-muted" aria-label="No aplica">
+                            —
+                          </span>
+                        ) : (
+                          <PnlValue value={pos.unrealizedPnl} />
+                        )}
                       </td>
                     </tr>
                   ))}

@@ -236,3 +236,17 @@ model SyncHistory {
 
   @@map("sync_history")
 }
+
+// Monedas "capital" de un usuario (p.ej. USDT como dólares virtuales):
+// cuentan en el valor total pero no en invertido, ganancias ni variación
+// 24h. Por usuario, así aplica igual a todos sus portafolios y a la vista
+// General.
+model CapitalAsset {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  assetId   String   @map("asset_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([userId, assetId])
+  @@map("capital_assets")
+}

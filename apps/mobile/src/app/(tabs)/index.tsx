@@ -63,6 +63,14 @@ export default function DashboardScreen() {
             />
             <StatTile label="Invertido" value={money(summary.data.totalInvested)} />
           </View>
+          {summary.data.capitalValue > 0 ? (
+            <Card>
+              <Row>
+                <Muted>Capital (no cuenta en la ganancia)</Muted>
+                <Body style={{ fontVariant: ['tabular-nums'] }}>{money(summary.data.capitalValue)}</Body>
+              </Row>
+            </Card>
+          ) : null}
           <Card>
             <Row>
               <Muted>Ganancia no realizada</Muted>

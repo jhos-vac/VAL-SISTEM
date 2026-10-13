@@ -5,6 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { PortfolioPrismaService } from '../prisma/portfolio-prisma.service';
+import { summarizePositions } from './cost-basis';
 import { PortfolioService } from './portfolio.service';
 
 const CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hora
@@ -96,12 +97,12 @@ export class PortfolioSnapshotService implements OnModuleInit, OnModuleDestroy {
     const positions =
       await this.portfolioService.getEnrichedPositionsForSnapshot(portfolioId);
 
-    const totalValue = positions.reduce((sum, p) => sum + p.currentValue, 0);
-    const investmentValue = positions.reduce(
-      (sum, p) => sum + p.quantity * p.averageCost,
-      0,
-    );
-    const profit = totalValue - investmentValue;
+    // El valor total incluye las monedas capital; la inversión y la
+    // ganancia, no (ver summarizePositions).
+    const totals = summarizePositions(positions);
+    const totalValue = totals.totalValue;
+    const investmentValue = totals.totalInvested;
+    const profit = totals.unrealizedPnl;
     const profitPercent =
       investmentValue > 0 ? (profit / investmentValue) * 100 : 0;
     const snapshotDate = startOfUtcDay(new Date());

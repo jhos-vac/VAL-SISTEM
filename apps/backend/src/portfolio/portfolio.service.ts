@@ -30,6 +30,8 @@ export interface AssetPositionDto {
   currentValue: number;
   realizedPnl: number;
   unrealizedPnl: number;
+  // Moneda capital del usuario: no cuenta en invertido ni en ganancias.
+  isCapital: boolean;
 }
 
 export interface EnrichedPosition extends AssetPositionDto {
@@ -40,6 +42,8 @@ export interface EnrichedPosition extends AssetPositionDto {
 export interface PortfolioSummaryDto {
   portfolioId: string;
   totalValue: number;
+  // Parte del valor total en monedas capital (ver CapitalAsset).
+  capitalValue: number;
   totalInvested: number;
   realizedPnl: number;
   unrealizedPnl: number;
@@ -191,7 +195,7 @@ export class PortfolioService {
     portfolioId: string,
   ): Promise<EnrichedPosition[]> {
     const ids = await this.resolveScope(userId, portfolioId);
-    return this.getEnrichedPositionsForPortfolios(ids);
+    return this.getEnrichedPositionsForPortfolios(ids, userId);
   }
 
   // Igual que getEnrichedPositions pero SIN el chequeo de ownership — lo
@@ -201,20 +205,36 @@ export class PortfolioService {
   async getEnrichedPositionsForSnapshot(
     portfolioId: string,
   ): Promise<EnrichedPosition[]> {
-    return this.getEnrichedPositionsForPortfolios([portfolioId]);
+    const portfolio = await this.prisma.portfolio.findUnique({
+      where: { id: portfolioId },
+      select: { userId: true },
+    });
+    if (!portfolio) return [];
+    return this.getEnrichedPositionsForPortfolios(
+      [portfolioId],
+      portfolio.userId,
+    );
   }
 
   private async getEnrichedPositionsForPortfolios(
     portfolioIds: string[],
+    userId: string,
   ): Promise<EnrichedPosition[]> {
     if (portfolioIds.length === 0) return [];
-    const positions = await this.prisma.assetPosition.findMany({
-      where: {
-        wallet: { portfolioId: { in: portfolioIds }, isActive: true },
-        quantity: { gt: 0 },
-      },
-      include: { wallet: true },
-    });
+    const [positions, capitalRows] = await Promise.all([
+      this.prisma.assetPosition.findMany({
+        where: {
+          wallet: { portfolioId: { in: portfolioIds }, isActive: true },
+          quantity: { gt: 0 },
+        },
+        include: { wallet: true },
+      }),
+      this.prisma.capitalAsset.findMany({
+        where: { userId },
+        select: { assetId: true },
+      }),
+    ]);
+    const capitalAssetIds = new Set(capitalRows.map((r) => r.assetId));
 
     if (positions.length === 0) return [];
 
@@ -246,6 +266,7 @@ export class PortfolioService {
         currentValue,
         realizedPnl: p.realizedProfit,
         unrealizedPnl,
+        isCapital: capitalAssetIds.has(p.assetId),
         changePercent24h: priceInfo?.changePercent24h ?? 0,
       };
     });
@@ -282,6 +303,7 @@ export class PortfolioService {
       currentValue: p.currentValue,
       realizedPnl: p.realizedPnl,
       unrealizedPnl: p.unrealizedPnl,
+      isCapital: p.isCapital,
     }));
   }
 

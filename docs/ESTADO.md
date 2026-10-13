@@ -1,6 +1,6 @@
 # Estado del proyecto VAL-SISTEM
 
-_Actualizado: 12 de octubre de 2026._ Este archivo reemplaza a los
+_Actualizado: 13 de octubre de 2026._ Este archivo reemplaza a los
 documentos de estado del proyecto (`Estado_Web_VAL-SISTEM.md`,
 `Estado_Backend_VAL-BACKEND.md`), que quedaron congelados al 29 de
 septiembre. La lista de actividades vive en la Bitácora del MVP.
@@ -91,6 +91,19 @@ backend juntos (`scripts/dev-reset.js`).
       `next-env.d.ts` no se versiona; ahora corre `next typegen` antes de
       `tsc`.
 
+- **13 oct. Monedas capital.**
+  - El usuario marca en Ajustes qué monedas usa como dinero y no como
+    inversión (p.ej. USDT, como dólares virtuales).
+  - Esas monedas suman al valor total (y se informan como
+    `capitalValue`), pero quedan fuera de invertido, ganancia
+    realizada/no realizada y variación 24h, también en los snapshots.
+  - Se guardan por usuario en la tabla `capital_assets` (base portfolio,
+    migración `20261013120000_capital_assets`), con los endpoints
+    `GET/PUT /capital-assets`.
+  - En posiciones, esas monedas se marcan como "Capital" y se muestran
+    sin ganancia.
+  - Se borra `apps/web/src/lib/mock-data.ts`, que estaba sin uso.
+
 ## Cómo se calcula el costo y la ganancia
 
 Método: **costo promedio ponderado**.
@@ -155,7 +168,6 @@ Diferencias del sync de Binance (`computeCostBasisFromTrades`):
 - Seguridad: rate limiting en `/auth/*`, 2FA (el campo ya existe) y
   sesiones activas.
 - Higiene:
-  - Borrar `apps/web/src/lib/mock-data.ts`, que está sin uso.
   - Corregir el typo `timezomeId`.
   - Archivar el repo `VAL-BACKEND`.
 - Avisar en la UI que la ganancia de activos depositados es estimada.

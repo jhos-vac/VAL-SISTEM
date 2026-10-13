@@ -63,7 +63,7 @@ export default function PositionsScreen() {
                 <Muted>
                   {formatQuantity(p.quantity)} · costo {money(p.averageCost)}
                 </Muted>
-                <PnlText value={p.unrealizedPnl} format={money} />
+                {p.isCapital ? <Muted>Capital</Muted> : <PnlText value={p.unrealizedPnl} format={money} />}
               </Row>
             </Card>
           ))}

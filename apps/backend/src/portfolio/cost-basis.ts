@@ -154,40 +154,48 @@ export interface ValuedPosition {
   realizedPnl: number;
   unrealizedPnl: number;
   changePercent24h: number;
+  // Moneda capital (p.ej. USDT como dólares virtuales): suma al valor
+  // total, pero no es una inversión.
+  isCapital?: boolean;
 }
 
 export interface PortfolioTotals {
   totalValue: number;
+  capitalValue: number;
   totalInvested: number;
   realizedPnl: number;
   unrealizedPnl: number;
   changePercent24h: number;
 }
 
-// Totales del portafolio. La variación 24h es el promedio de la variación
-// de cada activo, ponderado por cuánto pesa ese activo en el valor total.
+// Totales del portafolio. El valor total incluye todo; las monedas capital
+// se informan aparte (capitalValue) y quedan fuera de invertido, ganancias
+// y variación 24h. La variación 24h es el promedio de la variación de cada
+// activo invertido, ponderado por su peso en el valor invertido.
 export function summarizePositions(
   positions: ValuedPosition[],
 ): PortfolioTotals {
-  const totalValue = positions.reduce((sum, p) => sum + p.currentValue, 0);
-  const totalInvested = positions.reduce(
-    (sum, p) => sum + p.quantity * p.averageCost,
-    0,
-  );
-  const realizedPnl = positions.reduce((sum, p) => sum + p.realizedPnl, 0);
-  const unrealizedPnl = positions.reduce((sum, p) => sum + p.unrealizedPnl, 0);
+  const sum = (list: ValuedPosition[], pick: (p: ValuedPosition) => number) =>
+    list.reduce((acc, p) => acc + pick(p), 0);
+
+  const invested = positions.filter((p) => !p.isCapital);
+  const capital = positions.filter((p) => p.isCapital);
+
+  const investedValue = sum(invested, (p) => p.currentValue);
   const changePercent24h =
-    totalValue > 0
-      ? positions.reduce(
-          (sum, p) => sum + p.changePercent24h * (p.currentValue / totalValue),
-          0,
+    investedValue > 0
+      ? sum(
+          invested,
+          (p) => p.changePercent24h * (p.currentValue / investedValue),
         )
       : 0;
+
   return {
-    totalValue,
-    totalInvested,
-    realizedPnl,
-    unrealizedPnl,
+    totalValue: sum(positions, (p) => p.currentValue),
+    capitalValue: sum(capital, (p) => p.currentValue),
+    totalInvested: sum(invested, (p) => p.quantity * p.averageCost),
+    realizedPnl: sum(invested, (p) => p.realizedPnl),
+    unrealizedPnl: sum(invested, (p) => p.unrealizedPnl),
     changePercent24h,
   };
 }

@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Card } from "@/components/ui/Card";
+import { CapitalAssetsCard } from "@/components/settings/CapitalAssetsCard";
 import { useAuthStore } from "@/store/auth-store";
 import {
   fetchSettings,
@@ -227,6 +228,8 @@ export default function SettingsPage() {
           </form>
         )}
       </Card>
+
+      <CapitalAssetsCard />
 
       <Card title="Seguridad">
         {loadingSettings ? (

@@ -227,6 +227,7 @@ describe('summarizePositions', () => {
   it('un portafolio vacío da todo en 0', () => {
     expect(summarizePositions([])).toEqual({
       totalValue: 0,
+      capitalValue: 0,
       totalInvested: 0,
       realizedPnl: 0,
       unrealizedPnl: 0,
@@ -259,5 +260,54 @@ describe('summarizePositions', () => {
     expect(totals.unrealizedPnl).toBe(180);
     // 10 * 0.75 + (-2) * 0.25
     expect(totals.changePercent24h).toBeCloseTo(7);
+  });
+
+  it('las monedas capital suman al valor total pero no a ganancias', () => {
+    const btc = {
+      quantity: 1,
+      averageCost: 100,
+      currentValue: 150,
+      realizedPnl: 10,
+      unrealizedPnl: 50,
+      changePercent24h: 4,
+    };
+    const usdt = {
+      quantity: 500,
+      averageCost: 1,
+      currentValue: 500.5,
+      realizedPnl: 3,
+      unrealizedPnl: 0.5,
+      changePercent24h: 0.1,
+      isCapital: true,
+    };
+    const totals = summarizePositions([btc, usdt]);
+    expect(totals.totalValue).toBeCloseTo(650.5);
+    expect(totals.capitalValue).toBeCloseTo(500.5);
+    expect(totals.totalInvested).toBe(100);
+    expect(totals.realizedPnl).toBe(10);
+    expect(totals.unrealizedPnl).toBe(50);
+    // Sin el capital, la variación 24h es solo la del BTC.
+    expect(totals.changePercent24h).toBeCloseTo(4);
+  });
+
+  it('un portafolio solo con capital no tiene ganancia ni variación', () => {
+    const totals = summarizePositions([
+      {
+        quantity: 100,
+        averageCost: 1,
+        currentValue: 100,
+        realizedPnl: 0,
+        unrealizedPnl: 0,
+        changePercent24h: 0.2,
+        isCapital: true,
+      },
+    ]);
+    expect(totals).toMatchObject({
+      totalValue: 100,
+      capitalValue: 100,
+      totalInvested: 0,
+      unrealizedPnl: 0,
+      changePercent24h: 0,
+    });
   });
 });

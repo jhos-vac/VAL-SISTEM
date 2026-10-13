@@ -1,11 +1,6 @@
 // Cliente HTTP hacia el backend (VAL-BACKEND / NestJS). Ningún cliente
 // (web o móvil) habla directo con Binance ni con las bases de datos —
 // siempre a través de esta API (ver Especificacion_Web_Movil_MVP.md, §5).
-//
-// El backend hoy solo expone el módulo Identity & Auth (ver
-// Estado_Backend_VAL-BACKEND.md) — los endpoints de Market/Portfolio/
-// Automation siguen sin construir, así que esas pantallas se quedan con
-// mock-data.ts hasta que existan de verdad.
 
 // Todas las llamadas van a /backend-api/* (mismo dominio que la web); el
 // servidor de Next las reenvía al backend real — ver `rewrites` en

@@ -139,3 +139,17 @@ export async function getOrCreateDefaultWallet(portfolioId: string): Promise<Wal
   if (wallets.length > 0) return wallets[0];
   return createWallet(portfolioId, { walletName: "Principal", walletType: "manual" });
 }
+
+// Monedas capital (p.ej. USDT como dólares virtuales): suman al valor
+// total pero no cuentan en invertido, ganancias ni variación 24h. Es una
+// preferencia del usuario, igual para todos sus portafolios.
+export function fetchCapitalAssets(): Promise<string[]> {
+  return requestWithAuth<string[]>("/capital-assets");
+}
+
+export function updateCapitalAssets(symbols: string[]): Promise<string[]> {
+  return requestWithAuth<string[]>("/capital-assets", {
+    method: "PUT",
+    body: JSON.stringify({ symbols }),
+  });
+}

@@ -60,6 +60,9 @@ export default function DashboardPage() {
   }
 
   const s = summary;
+  // Con monedas capital (p.ej. USDT), el valor total incluye ese dinero
+  // pero invertido, ganancias y variación 24h no.
+  const hasCapital = s.capitalValue > 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -75,9 +78,21 @@ export default function DashboardPage() {
           label="Valor total"
           value={formatCurrency(s.totalValue)}
           accent="primary"
-          delta={<PnlValue value={s.changePercent24h} asPercent />}
+          delta={
+            hasCapital ? (
+              <Link href="/settings" className="hover:text-primary">
+                Capital: {formatCurrency(s.capitalValue)}
+              </Link>
+            ) : (
+              <PnlValue value={s.changePercent24h} asPercent />
+            )
+          }
         />
-        <StatTile label="Invertido" value={formatCurrency(s.totalInvested)} />
+        <StatTile
+          label="Invertido"
+          value={formatCurrency(s.totalInvested)}
+          delta={hasCapital ? "Sin moneda capital" : undefined}
+        />
         <StatTile
           label="Ganancia no realizada"
           value={<PnlValue value={s.unrealizedPnl} />}

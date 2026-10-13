@@ -6,8 +6,7 @@ import { CATEGORICAL } from "@/lib/chart-colors";
 
 // Composición del portafolio por activo (RFW-04): part-to-whole -> barra
 // horizontal apilada con color categórico (choosing-a-form.md). Más de 8
-// activos se espera que el caller ya los haya plegado en "Otros" (ver
-// mock-data.ts). Direct labels + una tabla accesible debajo, nunca solo el
+// activos se espera que el caller ya los haya plegado en "Otros". Direct labels + una tabla accesible debajo, nunca solo el
 // color (marks-and-anatomy / anti-patterns).
 export function AllocationBar({
   allocation,
