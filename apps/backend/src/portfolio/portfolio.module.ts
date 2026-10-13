@@ -12,6 +12,7 @@ import { CapitalAssetService } from './capital-asset.service';
 import { CapitalAssetsController } from './capital-assets.controller';
 import { ExchangeAccountStore } from './exchange-account.store';
 import { PositionLedgerService } from './position-ledger.service';
+import { UserDataPurgeService } from './user-data-purge.service';
 
 @Module({
   // MarketModule exporta MarketService — Portfolio lo usa para enriquecer
@@ -32,6 +33,7 @@ import { PositionLedgerService } from './position-ledger.service';
     CapitalAssetService,
     ExchangeAccountStore,
     PositionLedgerService,
+    UserDataPurgeService,
   ],
   // API pública del módulo: lo que otros módulos (Exchange, jobs) pueden
   // usar. Nadie más escribe en la base Portfolio.
@@ -40,6 +42,7 @@ import { PositionLedgerService } from './position-ledger.service';
     PortfolioSnapshotService,
     ExchangeAccountStore,
     PositionLedgerService,
+    UserDataPurgeService,
   ],
 })
 export class PortfolioModule {}

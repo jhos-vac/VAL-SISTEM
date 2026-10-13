@@ -3,6 +3,7 @@ import type { JobLeaseService } from './job-lease.service';
 import type { BinanceTickerSyncService } from '../market/binance-ticker-sync.service';
 import type { BinanceAccountSyncService } from '../exchange/binance-account-sync.service';
 import type { PortfolioSnapshotService } from '../portfolio/portfolio-snapshot.service';
+import type { AccountDeletionService } from '../account/account-deletion.service';
 
 jest.mock('./job-lease.service', () => ({ JobLeaseService: class {} }));
 jest.mock('../market/binance-ticker-sync.service', () => ({
@@ -13,6 +14,9 @@ jest.mock('../exchange/binance-account-sync.service', () => ({
 }));
 jest.mock('../portfolio/portfolio-snapshot.service', () => ({
   PortfolioSnapshotService: class {},
+}));
+jest.mock('../account/account-deletion.service', () => ({
+  AccountDeletionService: class {},
 }));
 
 function setup(acquired: boolean) {
@@ -31,6 +35,7 @@ function setup(acquired: boolean) {
     {} as BinanceTickerSyncService,
     {} as BinanceAccountSyncService,
     {} as PortfolioSnapshotService,
+    {} as AccountDeletionService,
   );
   return { service, leases, job };
 }

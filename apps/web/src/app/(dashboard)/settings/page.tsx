@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Card } from "@/components/ui/Card";
 import { CapitalAssetsCard } from "@/components/settings/CapitalAssetsCard";
+import { DeleteAccountCard } from "@/components/settings/DeleteAccountCard";
 import { useAuthStore } from "@/store/auth-store";
 import {
   fetchSettings,
@@ -285,6 +286,8 @@ export default function SettingsPage() {
           </div>
         )}
       </Card>
+
+      <DeleteAccountCard />
     </div>
   );
 }

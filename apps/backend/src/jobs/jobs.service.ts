@@ -8,6 +8,7 @@ import { BinanceTickerSyncService } from '../market/binance-ticker-sync.service'
 import { BinanceAccountSyncService } from '../exchange/binance-account-sync.service';
 import { PortfolioSnapshotService } from '../portfolio/portfolio-snapshot.service';
 import { JobLeaseService } from './job-lease.service';
+import { AccountDeletionService } from '../account/account-deletion.service';
 
 interface JobDefinition {
   name: string;
@@ -35,6 +36,7 @@ export class JobsService implements OnApplicationBootstrap, OnModuleDestroy {
     tickerSync: BinanceTickerSyncService,
     accountSync: BinanceAccountSyncService,
     snapshots: PortfolioSnapshotService,
+    accountDeletion: AccountDeletionService,
   ) {
     this.jobs = [
       {
@@ -54,6 +56,12 @@ export class JobsService implements OnApplicationBootstrap, OnModuleDestroy {
         everyMs: 60 * MINUTE,
         runOnStart: true,
         run: () => snapshots.snapshotAll(),
+      },
+      {
+        name: 'account.purge-closed',
+        everyMs: 60 * MINUTE,
+        runOnStart: false,
+        run: () => accountDeletion.purgeRecentlyClosed(),
       },
     ];
   }

@@ -2,6 +2,7 @@ import { ApiError } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import {
   bootstrapSession,
+  deleteAccount,
   login,
   logout,
   refreshSession,
@@ -152,5 +153,32 @@ describe('logout', () => {
     expect(store.refresh).toBeNull();
     expect(store.deviceId).toBeNull();
     expect(useAuthStore.getState().status).toBe('unauthenticated');
+  });
+});
+
+describe('deleteAccount', () => {
+  it('borra la cuenta en el backend y limpia todo lo local', async () => {
+    store.refresh = 'refresh-1';
+    store.deviceId = 'd-1';
+    useAuthStore.setState({ accessToken: 'access-1', status: 'authenticated' });
+    mockRequest.mockResolvedValueOnce({ success: true });
+    await deleteAccount('secreta');
+    expect(mockRequest).toHaveBeenCalledWith(
+      '/account',
+      expect.objectContaining({ method: 'DELETE', body: JSON.stringify({ password: 'secreta' }) }),
+    );
+    expect(store.refresh).toBeNull();
+    expect(useAuthStore.getState().status).toBe('unauthenticated');
+  });
+
+  it('con contraseña incorrecta conserva la sesión', async () => {
+    store.refresh = 'refresh-1';
+    useAuthStore.setState({ accessToken: 'access-1', status: 'authenticated' });
+    mockRequest.mockRejectedValueOnce(new ApiError('La contraseña no es correcta', 403));
+    await expect(deleteAccount('mal')).rejects.toBeInstanceOf(ApiError);
+    // 403 no dispara renovación de sesión ni la borra.
+    expect(mockRequest).toHaveBeenCalledTimes(1);
+    expect(store.refresh).toBe('refresh-1');
+    expect(useAuthStore.getState().status).toBe('authenticated');
   });
 });

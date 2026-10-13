@@ -141,13 +141,29 @@ export async function logout(): Promise<void> {
   } catch {
     // Sin red o backend caído: igual se cierra la sesión local.
   } finally {
-    await secure.clearRefreshToken();
-    await secure.clearDeviceId();
-    // Los datos del usuario no deben quedar en el teléfono.
-    queryClient.clear();
-    await queryPersister.removeClient();
-    useAuthStore.getState().clearSession();
+    await clearLocalSession();
   }
+}
+
+// Borra todo rastro de la sesión en el teléfono: tokens, id del
+// dispositivo y la caché con los datos del usuario.
+export async function clearLocalSession(): Promise<void> {
+  await secure.clearRefreshToken();
+  await secure.clearDeviceId();
+  queryClient.clear();
+  await queryPersister.removeClient();
+  useAuthStore.getState().clearSession();
+}
+
+// Borra la cuenta y todos sus datos en el backend (irreversible). El
+// backend ya revoca las sesiones y da de baja los dispositivos; acá solo
+// queda limpiar lo local.
+export async function deleteAccount(password: string): Promise<void> {
+  await requestWithAuth('/account', {
+    method: 'DELETE',
+    body: JSON.stringify({ password }),
+  });
+  await clearLocalSession();
 }
 
 // Llamadas que requieren sesión: si no hay access token (arranque offline)

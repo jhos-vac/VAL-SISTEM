@@ -59,3 +59,11 @@ export function updateSettings(input: UpdateSettingsInput): Promise<UserSettings
 export function fetchSettingsCatalogs(): Promise<SettingsCatalogs> {
   return requestWithAuth<SettingsCatalogs>("/users/settings/catalogs");
 }
+
+// Borra la cuenta y todos sus datos (irreversible). Pide la contraseña.
+export async function deleteAccount(password: string): Promise<void> {
+  await requestWithAuth<{ success: boolean }>("/account", {
+    method: "DELETE",
+    body: JSON.stringify({ password }),
+  });
+}

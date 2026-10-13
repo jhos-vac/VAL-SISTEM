@@ -287,7 +287,7 @@ lo marcado como pendiente.
 | M5 | Índices únicos en `user_settings.user_ID` y `devices(user_ID, push_token)` (la migración limpia duplicados antes) y `upsert`. |
 | B1 | Snapshot e ítems en una transacción. |
 | B2 | Lock por usuario en create/update/getOrCreateDefault de portafolios. |
-| B3 | Documentado: los assets nunca se borran, solo se desactivan. **Pendiente:** limpieza al borrar una cuenta, cuando exista esa función. |
+| B3 | Borrado de cuenta (`DELETE /account`, módulo `account/`): primero baja atómica en Identity (sin datos personales, sesiones revocadas), después limpieza atómica en Portfolio (`UserDataPurgeService`). El job `account.purge-closed` repite la limpieza durante 30 días por si un paso falló. Los assets de Market nunca se borran, solo se desactivan. **Al construir Automation:** sumar su limpieza a `AccountDeletionService`. |
 | C1 | Exchange persiste solo por `ExchangeAccountStore` y `PositionLedgerService` (exportados por Portfolio). |
 | C2 | Un módulo Prisma por base, sin `@Global`, y una regla de ESLint (`no-restricted-imports`) que falla si un módulo importa el cliente de otra base. |
 | C3 | `PortfolioService.getOrCreateDefault`. |

@@ -121,6 +121,16 @@ backend juntos (`scripts/dev-reset.js`).
     índices únicos borra los ajustes y dispositivos duplicados. Se aplica
     con `npm run db:deploy:user`.
 
+- **13 oct. Migraciones automáticas y borrado de cuenta.**
+  - El build de Render corre `db:deploy` al final: cada deploy aplica las
+    migraciones pendientes antes de arrancar el código nuevo.
+  - Borrado de cuenta en Ajustes, en la web y en la app (lo exigen App
+    Store y Google Play). Pide la contraseña.
+  - La cuenta se da de baja sin datos personales y se borran sus
+    portafolios, posiciones, cuentas de Binance, watchlists y monedas
+    capital.
+  - Un job repite la limpieza durante 30 días.
+
 ## Cómo se calcula el costo y la ganancia
 
 Método: **costo promedio ponderado**.

@@ -65,6 +65,7 @@ export default function RootLayout() {
           />
           <Stack.Screen name="portfolios" options={{ title: 'Portafolios', presentation: 'modal' }} />
           <Stack.Screen name="exchange" options={{ title: 'Binance' }} />
+          <Stack.Screen name="delete-account" options={{ title: 'Eliminar cuenta' }} />
         </Stack.Protected>
       </Stack>
     </PersistQueryClientProvider>

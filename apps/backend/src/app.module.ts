@@ -11,6 +11,7 @@ import { ExchangeModule } from './exchange/exchange.module';
 import { UsersModule } from './users/users.module';
 import { DevicesModule } from './devices/devices.module';
 import { JobsModule } from './jobs/jobs.module';
+import { AccountModule } from './account/account.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
@@ -26,6 +27,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     ExchangeModule,
     UsersModule,
     DevicesModule,
+    AccountModule,
     JobsModule,
   ],
   controllers: [AppController],

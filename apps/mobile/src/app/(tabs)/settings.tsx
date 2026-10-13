@@ -67,7 +67,8 @@ export default function SettingsScreen() {
       </Card>
 
       <Button title="Conexión con Binance" variant="secondary" onPress={() => router.push('/exchange')} />
-      <Button title="Cerrar sesión" variant="danger" onPress={confirmLogout} />
+      <Button title="Cerrar sesión" variant="secondary" onPress={confirmLogout} />
+      <Button title="Eliminar cuenta" variant="danger" onPress={() => router.push('/delete-account')} />
       <Muted style={{ textAlign: 'center' }}>Versión {APP_VERSION}</Muted>
     </Screen>
   );
