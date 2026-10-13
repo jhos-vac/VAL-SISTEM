@@ -60,6 +60,13 @@ export class TransactionService {
     dto: CreateTransactionDto,
   ): Promise<TransactionDto> {
     const wallet = await this.resolveOwnedWallet(userId, dto.walletId);
+    // Las wallets de un exchange se reconstruyen en cada sync: un
+    // movimiento manual ahí se perdería en la próxima corrida.
+    if (wallet.walletType === 'exchange') {
+      throw new BadRequestException(
+        'Esta wallet se sincroniza con un exchange y no acepta movimientos manuales. Usá una wallet manual.',
+      );
+    }
 
     const asset = await this.marketService.getAssetBySymbol(dto.assetSymbol);
     if (!asset) {
@@ -81,6 +88,13 @@ export class TransactionService {
     const executedAt = new Date(dto.executedAt);
 
     const result = await this.prisma.$transaction(async (tx) => {
+      // Bloquea la wallet hasta el commit: dos altas simultáneas sobre la
+      // misma wallet se ejecutan en fila, así ninguna calcula sobre una
+      // posición que la otra está por cambiar (sin esto, dos ventas de 3
+      // sobre 4 pasaban las dos). Se bloquea la wallet y no la posición
+      // porque la posición puede no existir todavía.
+      await tx.$queryRaw`SELECT 1 FROM "wallets" WHERE "id" = ${dto.walletId}::uuid FOR UPDATE`;
+
       const existing = await tx.assetPosition.findUnique({
         where: {
           walletId_assetId: { walletId: dto.walletId, assetId: asset.id },

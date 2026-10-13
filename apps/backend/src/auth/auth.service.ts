@@ -10,6 +10,8 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'node:crypto';
 import { UserPrismaService } from '../prisma/user-prisma.service';
+import type { Prisma } from '../../prisma/generated/user-cli/client';
+import { isUniqueViolation } from '../common/db/prisma-errors';
 import { EmailService } from '../common/email/email.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -111,17 +113,31 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
-    const user = await this.prisma.user.create({
-      data: {
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        username: dto.username,
-        email: dto.email,
-        passwordHash,
-      },
-    });
-
-    await this.assignDefaultRole(user.id);
+    // Usuario y rol en una sola transacción: nunca queda un usuario sin rol.
+    const user = await this.prisma
+      .$transaction(async (tx) => {
+        const created = await tx.user.create({
+          data: {
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            username: dto.username,
+            email: dto.email,
+            passwordHash,
+          },
+        });
+        await this.assignDefaultRole(tx, created.id);
+        return created;
+      })
+      .catch((err: unknown) => {
+        // Dos registros simultáneos con el mismo email/usuario pasan el
+        // chequeo de arriba; el índice único frena al segundo.
+        if (isUniqueViolation(err)) {
+          throw new ConflictException(
+            'Ya existe una cuenta con ese email o usuario',
+          );
+        }
+        throw err;
+      });
 
     this.logger.log(`Nuevo usuario registrado: ${user.email}`);
     return toPublicUser(user);
@@ -131,8 +147,11 @@ export class AuthService {
   // todavía no se sembró (npm run db:seed:user), no rompe el registro —
   // el usuario queda sin rol hasta que se corra el seed y se le asigne a
   // mano, igual que pasaba antes de que esto existiera.
-  private async assignDefaultRole(userId: string): Promise<void> {
-    const role = await this.prisma.role.findFirst({
+  private async assignDefaultRole(
+    tx: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<void> {
+    const role = await tx.role.findFirst({
       where: { name: DEFAULT_REGISTRATION_ROLE },
     });
     if (!role) {
@@ -141,11 +160,14 @@ export class AuthService {
       );
       return;
     }
-    await this.prisma.userRole.create({ data: { userId, roleId: role.id } });
+    await tx.userRole.create({ data: { userId, roleId: role.id } });
   }
 
-  private async getRoleNames(userId: string): Promise<string[]> {
-    const userRoles = await this.prisma.userRole.findMany({
+  private async getRoleNames(
+    db: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<string[]> {
+    const userRoles = await db.userRole.findMany({
       where: { userId },
       include: { role: true },
     });
@@ -184,12 +206,13 @@ export class AuthService {
     userId: string,
     email: string,
     meta: RequestMeta,
+    db: Prisma.TransactionClient = this.prisma,
   ): Promise<TokenPair> {
     // Roles reales desde la base (antes esto era siempre `[]` — RolesGuard
     // nunca tenía nada contra qué validar). Se resuelven acá, no una vez
     // sola al loguear, para que un cambio de rol se refleje en el próximo
     // refresh sin esperar a que expire el access token viejo.
-    const roles = await this.getRoleNames(userId);
+    const roles = await this.getRoleNames(db, userId);
 
     const accessToken = await this.jwt.signAsync({
       sub: userId,
@@ -207,7 +230,7 @@ export class AuthService {
       .digest('hex');
     const expiresAt = new Date(Date.now() + this.refreshTtlMs);
 
-    await this.prisma.refreshToken.create({
+    await db.refreshToken.create({
       data: {
         userId,
         tokenHash,
@@ -245,18 +268,20 @@ export class AuthService {
       throw new UnauthorizedException('Sesión inválida o expirada');
     }
 
-    // Rotación: el refresh usado queda revocado y se emite uno nuevo. Si
-    // alguien reutiliza un refresh ya rotado, esto lo bloquea.
-    await this.prisma.refreshToken.update({
-      where: { id: stored.id },
-      data: { revokedAt: new Date() },
+    // Rotación: el refresh usado queda revocado y se emite uno nuevo, en
+    // la misma transacción. La revocación es condicional (revokedAt null):
+    // si dos pedidos llegan a la vez con el mismo token, solo uno la
+    // consigue y el otro recibe 401 — el token es de un solo uso de verdad.
+    const tokens = await this.prisma.$transaction(async (tx) => {
+      const revoked = await tx.refreshToken.updateMany({
+        where: { id: stored.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      if (revoked.count !== 1) {
+        throw new UnauthorizedException('Sesión inválida o expirada');
+      }
+      return this.issueTokenPair(stored.user.id, stored.user.email, meta, tx);
     });
-
-    const tokens = await this.issueTokenPair(
-      stored.user.id,
-      stored.user.email,
-      meta,
-    );
     return { user: toPublicUser(stored.user), ...tokens };
   }
 
@@ -279,16 +304,18 @@ export class AuthService {
       throw new UnauthorizedException('La contraseña actual no es correcta');
     }
     const passwordHash = await bcrypt.hash(dto.newPassword, BCRYPT_SALT_ROUNDS);
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { passwordHash },
-    });
-
-    // Cambiar contraseña cierra sesión en todos los demás dispositivos.
-    await this.prisma.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
+    // Contraseña nueva y cierre de todas las sesiones, juntos: nunca queda
+    // la contraseña cambiada con sesiones viejas vivas.
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { passwordHash },
+      }),
+      this.prisma.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
   }
 
   async requestPasswordReset(email: string): Promise<void> {

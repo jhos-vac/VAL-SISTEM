@@ -89,27 +89,31 @@ export class ExchangeService {
 
     const portfolio = await this.resolveDefaultPortfolio(userId);
 
-    const account = await this.prisma.exchangeAccount.create({
-      data: {
-        userId,
-        exchangeId: exchange.id,
-        accountName: dto.label,
-        apiKey: encryptSecret(dto.apiKey),
-        apiSecret: encryptSecret(dto.apiSecret),
-        isTestnet: dto.isTestnet ?? false,
-        syncEnabled: true,
-      },
-    });
-
-    await this.prisma.wallet.create({
-      data: {
-        portfolioId: portfolio.id,
-        exchangeAccountId: account.id,
-        walletName: dto.label,
-        walletType: 'exchange',
-        address: `binance:${account.id}`,
-        network: dto.isTestnet ? 'Binance Testnet' : 'Binance',
-      },
+    // Cuenta y wallet juntas: nunca queda una cuenta conectada sin wallet
+    // (el sync periódico fallaría con ella cada 15 min).
+    const account = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.exchangeAccount.create({
+        data: {
+          userId,
+          exchangeId: exchange.id,
+          accountName: dto.label,
+          apiKey: encryptSecret(dto.apiKey),
+          apiSecret: encryptSecret(dto.apiSecret),
+          isTestnet: dto.isTestnet ?? false,
+          syncEnabled: true,
+        },
+      });
+      await tx.wallet.create({
+        data: {
+          portfolioId: portfolio.id,
+          exchangeAccountId: created.id,
+          walletName: dto.label,
+          walletType: 'exchange',
+          address: `binance:${created.id}`,
+          network: dto.isTestnet ? 'Binance Testnet' : 'Binance',
+        },
+      });
+      return created;
     });
 
     const syncResult = await this.syncService.syncAccount({

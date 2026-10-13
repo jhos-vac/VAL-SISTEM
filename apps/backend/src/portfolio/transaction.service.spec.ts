@@ -16,15 +16,26 @@ jest.mock('../market/market.service', () => ({ MarketService: class {} }));
 type Data = { data: Record<string, unknown> };
 
 // Prisma simulado en memoria: solo lo que usa TransactionService.create.
-function setup(existing?: {
-  quantity: number;
-  avgPrice: number;
-  realizedProfit: number;
-}) {
+function setup(
+  existing?: {
+    quantity: number;
+    avgPrice: number;
+    realizedProfit: number;
+  },
+  walletType = 'manual',
+) {
   const positionRow = existing ? { id: 'pos-1', ...existing } : null;
+  const calls: string[] = [];
   const tx = {
+    $queryRaw: jest.fn(() => {
+      calls.push('lock');
+      return Promise.resolve([]);
+    }),
     assetPosition: {
-      findUnique: jest.fn().mockResolvedValue(positionRow),
+      findUnique: jest.fn(() => {
+        calls.push('read');
+        return Promise.resolve(positionRow);
+      }),
       update: jest.fn(({ data }: Data) =>
         Promise.resolve({ id: 'pos-1', ...data }),
       ),
@@ -43,6 +54,7 @@ function setup(existing?: {
       findUnique: jest.fn().mockResolvedValue({
         id: 'w-1',
         portfolioId: 'p-1',
+        walletType,
         portfolio: { userId: 'u-1' },
       }),
     },
@@ -63,7 +75,7 @@ function setup(existing?: {
     {} as PortfolioService,
     market as unknown as MarketService,
   );
-  return { service, tx };
+  return { service, tx, calls };
 }
 
 const dto = (over: Partial<CreateTransactionDto>): CreateTransactionDto => ({
@@ -118,6 +130,24 @@ describe('TransactionService.create', () => {
       service.create('u-1', dto({ type: 'sell', quantity: 2 })),
     ).rejects.toBeInstanceOf(BadRequestException);
     expect(tx.assetPosition.update).not.toHaveBeenCalled();
+    expect(tx.transaction.create).not.toHaveBeenCalled();
+  });
+
+  it('bloquea la wallet antes de leer la posición', async () => {
+    const { service, calls } = setup({
+      quantity: 4,
+      avgPrice: 100,
+      realizedProfit: 0,
+    });
+    await service.create('u-1', dto({ type: 'sell', quantity: 3 }));
+    expect(calls).toEqual(['lock', 'read']);
+  });
+
+  it('rechaza movimientos manuales en una wallet de exchange', async () => {
+    const { service, tx } = setup(undefined, 'exchange');
+    await expect(service.create('u-1', dto({}))).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
     expect(tx.transaction.create).not.toHaveBeenCalled();
   });
 });

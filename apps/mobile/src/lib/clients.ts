@@ -78,7 +78,7 @@ export const fetchWallets = (portfolioId: string) =>
 // portafolio no tiene ninguna, se crea "Principal".
 export async function getOrCreateManualWallet(portfolioId: string): Promise<Wallet> {
   const wallets = await fetchWallets(portfolioId);
-  const manual = wallets.find((w) => w.walletType === 'manual') ?? wallets[0];
+  const manual = wallets.find((w) => w.walletType === 'manual');
   if (manual) return manual;
   return requestWithAuth<Wallet>(`/portfolios/${portfolioId}/wallets`, {
     method: 'POST',

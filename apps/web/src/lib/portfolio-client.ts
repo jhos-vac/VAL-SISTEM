@@ -128,15 +128,14 @@ function createWallet(
   });
 }
 
-// El MVP es "trackeo manual" (ver Especificacion_Web_Movil_MVP.md §3,
-// opción A) — el concepto de "wallet" queda oculto al usuario por ahora,
-// no hay UI para gestionarlas todavía. Cada portafolio necesita al menos
-// una para poder registrar transacciones (CreateTransactionDto pide
-// walletId), así que esta función devuelve la primera activa o crea
-// "Principal" si el portafolio todavía no tiene ninguna.
+// El concepto de "wallet" queda oculto al usuario: el alta manual va a la
+// primera wallet manual del portafolio, o se crea "Principal". Nunca a una
+// wallet de exchange (Binance): esas se reconstruyen en cada sync y el
+// movimiento se perdería (el backend además lo rechaza).
 export async function getOrCreateDefaultWallet(portfolioId: string): Promise<Wallet> {
   const wallets = await fetchWallets(portfolioId);
-  if (wallets.length > 0) return wallets[0];
+  const manual = wallets.find((w) => w.walletType === "manual");
+  if (manual) return manual;
   return createWallet(portfolioId, { walletName: "Principal", walletType: "manual" });
 }
 
