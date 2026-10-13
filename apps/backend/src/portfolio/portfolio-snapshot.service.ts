@@ -1,14 +1,7 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PortfolioPrismaService } from '../prisma/portfolio-prisma.service';
 import { summarizePositions } from './cost-basis';
 import { PortfolioService } from './portfolio.service';
-
-const CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hora
 
 function startOfUtcDay(date: Date): Date {
   return new Date(
@@ -20,9 +13,8 @@ function startOfUtcDay(date: Date): Date {
 // desbloquea el gráfico de rendimiento histórico real del dashboard, que
 // hoy sigue con datos de ejemplo (ver Estado_Web_VAL-SISTEM.md).
 //
-// Mismo patrón que BinanceTickerSyncService (setInterval nativo en vez
-// de @nestjs/schedule, ver esa clase para el motivo), pero acá el
-// intervalo es solo para CHEQUEAR si hay que escribir el punto de hoy —
+// Lo programa el módulo jobs/ cada hora (y una vez al arrancar), solo para
+// CHEQUEAR si hay que escribir el punto de hoy —
 // PortfolioSnapshot tiene un unique constraint en (portfolioId,
 // snapshotDate), así que hacer upsert del día de hoy varias veces en el
 // mismo día no crea duplicados, solo mantiene ese punto fresco con el
@@ -31,29 +23,14 @@ function startOfUtcDay(date: Date): Date {
 // (como el ticker) porque no hace falta más resolución que esa para un
 // gráfico diario.
 @Injectable()
-export class PortfolioSnapshotService implements OnModuleInit, OnModuleDestroy {
+export class PortfolioSnapshotService {
   private readonly logger = new Logger(PortfolioSnapshotService.name);
-  private timer?: NodeJS.Timeout;
   private running = false;
 
   constructor(
     private readonly prisma: PortfolioPrismaService,
     private readonly portfolioService: PortfolioService,
   ) {}
-
-  onModuleInit() {
-    this.timer = setInterval(() => {
-      void this.snapshotAll();
-    }, CHECK_INTERVAL_MS);
-    this.timer.unref?.();
-    // Corrida inmediata al arrancar, para que el primer punto del
-    // gráfico aparezca sin esperar a la próxima hora en punto.
-    void this.snapshotAll();
-  }
-
-  onModuleDestroy() {
-    if (this.timer) clearInterval(this.timer);
-  }
 
   async snapshotAll(): Promise<{ snapshotted: number; failed: number }> {
     if (this.running) {
@@ -107,20 +84,21 @@ export class PortfolioSnapshotService implements OnModuleInit, OnModuleDestroy {
       investmentValue > 0 ? (profit / investmentValue) * 100 : 0;
     const snapshotDate = startOfUtcDay(new Date());
 
-    const snapshot = await this.prisma.portfolioSnapshot.upsert({
-      where: { portfolioId_snapshotDate: { portfolioId, snapshotDate } },
-      create: {
-        portfolioId,
-        totalValue,
-        investmentValue,
-        profit,
-        profitPercent,
-        snapshotDate,
-      },
-      update: { totalValue, investmentValue, profit, profitPercent },
-    });
-
+    // Total del día e ítems juntos: nunca queda el total nuevo con ítems
+    // de la corrida anterior.
     await this.prisma.$transaction(async (tx) => {
+      const snapshot = await tx.portfolioSnapshot.upsert({
+        where: { portfolioId_snapshotDate: { portfolioId, snapshotDate } },
+        create: {
+          portfolioId,
+          totalValue,
+          investmentValue,
+          profit,
+          profitPercent,
+          snapshotDate,
+        },
+        update: { totalValue, investmentValue, profit, profitPercent },
+      });
       await tx.portfolioSnapshotItems.deleteMany({
         where: { snapshotId: snapshot.id },
       });

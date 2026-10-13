@@ -113,7 +113,8 @@ export const connectExchangeAccount = (input: ConnectExchangeInput) =>
   });
 
 export interface SyncResult {
-  status: 'completed' | 'failed';
+  // 'skipped': ya había un sync en curso para esa cuenta.
+  status: 'completed' | 'failed' | 'skipped';
   recordsProcessed: number;
   message: string;
 }

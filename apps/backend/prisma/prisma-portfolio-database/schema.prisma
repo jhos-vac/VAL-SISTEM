@@ -250,3 +250,15 @@ model CapitalAsset {
   @@unique([userId, assetId])
   @@map("capital_assets")
 }
+
+// Lease de los jobs periódicos (sync de precios, de cuentas, snapshots):
+// con más de una instancia del backend, solo la que toma el lease corre el
+// job. Es coordinación, no datos de negocio; vive acá por ser la base que
+// ya usan los jobs más pesados.
+model JobLease {
+  name        String   @id
+  lockedUntil DateTime @map("locked_until")
+  lockedBy    String   @map("locked_by")
+
+  @@map("job_leases")
+}

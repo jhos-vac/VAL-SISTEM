@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  Logger,
-  OnModuleDestroy,
-  OnModuleInit,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { MarketPrismaService } from '../prisma/market-prisma.service';
 
 // El segundo host es el espejo oficial de solo datos de mercado: se usa
@@ -14,7 +9,6 @@ const BINANCE_TICKER_24H_URLS = [
 ];
 // Binance acepta como máximo 100 símbolos por request en este endpoint.
 const SYMBOLS_PER_REQUEST = 100;
-const SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 min
 
 interface BinanceTicker24h {
   symbol: string;
@@ -33,43 +27,23 @@ interface BinanceTicker24h {
 
 // Sincroniza precios públicos de Binance (endpoint sin autenticación, no
 // requiere API key) hacia MarketTicker. Es el "job de sincronización
-// pública de tickers" de la Bitácora — corre cada 5 minutos vía
-// setInterval (arrancado en onModuleInit) y también se puede disparar a
-// mano con POST /market/sync/tickers.
+// pública de tickers" de la Bitácora — lo programa el módulo jobs/ cada 5
+// minutos y también se puede disparar a mano con POST /market/sync/tickers.
 //
-// Se usa setInterval nativo en vez de @nestjs/schedule/cron a propósito:
-// ese paquete arrastra varias dependencias opcionales pesadas
-// (microservices, grpc, luxon, etc.) que hicieron `npm install` colgarse
-// repetidamente por lentitud del registry al resolver ese árbol. Un
-// intervalo simple cubre exactamente lo que pide la Bitácora sin esa
-// fricción; si más adelante se necesitan cron expressions más complejas,
-// se puede reintentar instalar @nestjs/schedule por separado.
+// jobs/ usa setInterval nativo y no @nestjs/schedule a propósito: ese
+// paquete arrastra dependencias opcionales pesadas (microservices, grpc,
+// luxon, etc.) que hicieron `npm install` colgarse repetidamente.
 //
 // Importante: esto NO es el sync de cuentas de exchange del usuario (eso
 // vive en el dominio Automation/Sync con API keys cifradas — ver
 // Resumen_Backend_Plataforma_Inversiones.docx §7). Este servicio solo lee
 // precios públicos, iguales para todos los usuarios.
 @Injectable()
-export class BinanceTickerSyncService implements OnModuleInit, OnModuleDestroy {
+export class BinanceTickerSyncService {
   private readonly logger = new Logger(BinanceTickerSyncService.name);
   private syncing = false;
-  private timer?: NodeJS.Timeout;
 
   constructor(private readonly prisma: MarketPrismaService) {}
-
-  onModuleInit() {
-    this.timer = setInterval(() => {
-      void this.syncAll();
-    }, SYNC_INTERVAL_MS);
-    // No bloquear el shutdown del proceso solo por este timer.
-    this.timer.unref?.();
-    // Primera corrida al arrancar, sin esperar los 5 min.
-    void this.syncAll();
-  }
-
-  onModuleDestroy() {
-    if (this.timer) clearInterval(this.timer);
-  }
 
   // Idempotente: cada corrida hace upsert por exchangeMarketId (unique en
   // MarketTicker), nunca inserta duplicados sin importar cuántas veces se

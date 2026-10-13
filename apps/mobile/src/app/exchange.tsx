@@ -29,7 +29,8 @@ export default function ExchangeScreen() {
     mutationFn: syncExchangeAccount,
     onSuccess: async (res) => {
       await queryClient.invalidateQueries();
-      Alert.alert(res.status === 'completed' ? 'Sincronizado' : 'Falló la sincronización', res.message);
+      const title = { completed: 'Sincronizado', skipped: 'Sincronización en curso', failed: 'Falló la sincronización' };
+      Alert.alert(title[res.status], res.message);
     },
     onError: (err) => Alert.alert('Error', err.message),
   });

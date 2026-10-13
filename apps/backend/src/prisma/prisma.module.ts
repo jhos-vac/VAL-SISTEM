@@ -1,14 +1,33 @@
-import { Global, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { UserPrismaService } from './user-prisma.service';
 import { MarketPrismaService } from './market-prisma.service';
 import { PortfolioPrismaService } from './portfolio-prisma.service';
 
-// Global para no tener que re-importarlo en cada feature module. A medida
-// que se construya Automation, su PrismaService respectivo se agrega acá
-// siguiendo el mismo patrón que UserPrismaService.
-@Global()
+// Un módulo por base de datos, NO global: cada dominio importa solo el de
+// su base. Así un módulo no puede escribir en las tablas de otro dominio
+// (la inyección falla al arrancar) y tiene que usar su API pública. La
+// regla de lint de eslint.config.mjs lo refuerza a nivel de imports.
+// Cada cliente es un singleton: importarlo desde varios módulos comparte
+// el mismo pool de conexiones.
+
+// Identity: auth, users, devices (y el AuditLogInterceptor global).
 @Module({
-  providers: [UserPrismaService, MarketPrismaService, PortfolioPrismaService],
-  exports: [UserPrismaService, MarketPrismaService, PortfolioPrismaService],
+  providers: [UserPrismaService],
+  exports: [UserPrismaService],
 })
-export class PrismaModule {}
+export class UserPrismaModule {}
+
+// Market: catálogo de activos, pares y precios.
+@Module({
+  providers: [MarketPrismaService],
+  exports: [MarketPrismaService],
+})
+export class MarketPrismaModule {}
+
+// Portfolio: portafolios, wallets, posiciones, transacciones, cuentas de
+// exchange y su historial de sync.
+@Module({
+  providers: [PortfolioPrismaService],
+  exports: [PortfolioPrismaService],
+})
+export class PortfolioPrismaModule {}

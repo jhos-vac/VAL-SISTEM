@@ -1,6 +1,6 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { UserPrismaService } from '../prisma/user-prisma.service';
-import { toPublicUser, type PublicUser } from '../auth/auth.service';
+import { toPublicUser, type PublicUser } from './public-user';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 
 @Injectable()

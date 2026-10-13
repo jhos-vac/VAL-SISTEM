@@ -4,11 +4,14 @@ import { MarketService } from '../market/market.service';
 import { CreatePortfolioDto } from './dto/create-portfolio.dto';
 import { UpdatePortfolioDto } from './dto/update-portfolio.dto';
 import { summarizePositions, valuePosition } from './cost-basis';
+import { lockForTransaction } from '../common/db/advisory-lock';
 
 // Id especial para pedir la vista "General": suma de todos los portafolios
 // del usuario. Es virtual (no existe como fila), así que nunca queda
 // desactualizada ni duplica datos.
 export const ALL_PORTFOLIOS = 'all';
+
+const DEFAULT_PORTFOLIO_NAME = 'Mi Portafolio';
 
 export interface PortfolioDto {
   id: string;
@@ -115,11 +118,12 @@ export class PortfolioService {
   }
 
   async create(userId: string, dto: CreatePortfolioDto): Promise<PortfolioDto> {
-    const isFirst =
-      (await this.prisma.portfolio.count({ where: { userId } })) === 0;
-    const makeDefault = isFirst || dto.isDefault === true;
-
     const portfolio = await this.prisma.$transaction(async (tx) => {
+      // Serializa los cambios de portafolios de este usuario: dos altas
+      // simultáneas no pueden quedar las dos como predeterminadas.
+      await lockForTransaction(tx, `portfolios:${userId}`);
+      const isFirst = (await tx.portfolio.count({ where: { userId } })) === 0;
+      const makeDefault = isFirst || dto.isDefault === true;
       if (makeDefault) {
         await tx.portfolio.updateMany({
           where: { userId, isDefault: true },
@@ -137,6 +141,32 @@ export class PortfolioService {
       });
     });
 
+    return this.toDto(portfolio);
+  }
+
+  // Portafolio donde cae lo que el usuario no ubicó a mano (p.ej. una
+  // cuenta de Binance recién conectada): el predeterminado, o el más viejo,
+  // o uno nuevo si todavía no tiene ninguno.
+  async getOrCreateDefault(userId: string): Promise<PortfolioDto> {
+    const portfolio = await this.prisma.$transaction(async (tx) => {
+      await lockForTransaction(tx, `portfolios:${userId}`);
+      const existing = await tx.portfolio.findFirst({
+        where: { userId },
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+      });
+      return (
+        existing ??
+        tx.portfolio.create({
+          data: {
+            userId,
+            name: DEFAULT_PORTFOLIO_NAME,
+            description: '',
+            baseCurrency: 'USD',
+            isDefault: true,
+          },
+        })
+      );
+    });
     return this.toDto(portfolio);
   }
 
@@ -160,6 +190,7 @@ export class PortfolioService {
     await this.findOwnedOrThrow(userId, portfolioId);
 
     const portfolio = await this.prisma.$transaction(async (tx) => {
+      await lockForTransaction(tx, `portfolios:${userId}`);
       if (dto.isDefault === true) {
         await tx.portfolio.updateMany({
           where: { userId, isDefault: true, NOT: { id: portfolioId } },

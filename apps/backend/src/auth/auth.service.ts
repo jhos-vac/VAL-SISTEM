@@ -12,6 +12,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { UserPrismaService } from '../prisma/user-prisma.service';
 import type { Prisma } from '../../prisma/generated/user-cli/client';
 import { isUniqueViolation } from '../common/db/prisma-errors';
+import { toPublicUser, type PublicUser } from '../users/public-user';
 import { EmailService } from '../common/email/email.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -38,53 +39,6 @@ export interface TokenPair {
   accessToken: string;
   refreshToken: string;
   refreshTokenExpiresAt: Date;
-}
-
-// Perfil público del usuario — nunca incluye passwordHash. El shape exacto
-// que el cliente web/móvil va a consumir se termina de acordar cuando se
-// conecte de verdad (ver Estado_Backend_VAL-BACKEND.md); esto es lo que
-// hoy vive de verdad en el dominio Identity.
-export interface PublicUser {
-  id: string;
-  firstName: string;
-  lastName: string;
-  username: string;
-  email: string;
-  emailVerified: boolean;
-  status: string;
-  createdAt: Date;
-}
-
-export function toPublicUser(user: {
-  id: string;
-  firstName: string;
-  lastName: string;
-  username: string;
-  email: string;
-  emailVerified: boolean;
-  status: string;
-  createdAt: Date;
-}): PublicUser {
-  const {
-    id,
-    firstName,
-    lastName,
-    username,
-    email,
-    emailVerified,
-    status,
-    createdAt,
-  } = user;
-  return {
-    id,
-    firstName,
-    lastName,
-    username,
-    email,
-    emailVerified,
-    status,
-    createdAt,
-  };
 }
 
 @Injectable()
