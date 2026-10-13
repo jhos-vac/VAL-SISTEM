@@ -4,7 +4,10 @@ services:
     runtime: node
     plan: free
     region: frankfurt
-    buildCommand: npm install && npm run db:generate --workspace=apps/backend && npm run build --workspace=apps/backend
+    # Las migraciones van al final: solo se aplican si el código compiló.
+    # `migrate deploy` aplica únicamente las pendientes, en orden, y si una
+    # falla el deploy se corta y sigue corriendo la versión anterior.
+    buildCommand: npm install && npm run db:generate --workspace=apps/backend && npm run build --workspace=apps/backend && npm run db:deploy --workspace=apps/backend
     startCommand: node apps/backend/dist/src/main.js
     envVars:
       - key: NODE_VERSION
