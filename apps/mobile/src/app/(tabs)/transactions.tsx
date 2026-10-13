@@ -2,13 +2,12 @@ import { useState } from 'react';
 import { ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import type { TransactionType } from '@val-sistem/shared';
+import { TRANSACTION_TYPE_LABELS, type TransactionType } from '@val-sistem/shared';
 import { formatCurrency, formatQuantity } from '@val-sistem/shared';
 import { PortfolioHeader } from '@/components/PortfolioHeader';
 import { Body, Button, Card, Chip, ErrorText, Loading, Muted, Row, Screen } from '@/components/ui';
 import { useActivePortfolio } from '@/hooks/useActivePortfolio';
 import { fetchTransactions } from '@/lib/clients';
-import { TYPE_LABELS } from '@/lib/labels';
 import { spacing } from '@/lib/theme';
 
 export default function TransactionsScreen() {
@@ -30,8 +29,8 @@ export default function TransactionsScreen() {
       ) : null}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
         <Chip label="Todas" selected={!type} onPress={() => setType(undefined)} />
-        {(Object.keys(TYPE_LABELS) as TransactionType[]).map((key) => (
-          <Chip key={key} label={TYPE_LABELS[key]} selected={type === key} onPress={() => setType(key)} />
+        {(Object.keys(TRANSACTION_TYPE_LABELS) as TransactionType[]).map((key) => (
+          <Chip key={key} label={TRANSACTION_TYPE_LABELS[key]} selected={type === key} onPress={() => setType(key)} />
         ))}
       </ScrollView>
       {transactions.isLoading ? <Loading /> : null}
@@ -45,7 +44,7 @@ export default function TransactionsScreen() {
         <Card key={tx.id}>
           <Row>
             <Body style={{ fontWeight: '600' }}>
-              {TYPE_LABELS[tx.type]} · {tx.assetSymbol}
+              {TRANSACTION_TYPE_LABELS[tx.type]} · {tx.assetSymbol}
             </Body>
             <Body style={{ fontVariant: ['tabular-nums'] }}>{formatCurrency(tx.quantity * tx.price, currency)}</Body>
           </Row>

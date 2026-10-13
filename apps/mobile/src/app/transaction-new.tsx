@@ -2,11 +2,10 @@ import { useState } from 'react';
 import { ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import type { TransactionType } from '@val-sistem/shared';
+import { TRANSACTION_TYPE_LABELS, type TransactionType } from '@val-sistem/shared';
 import { Button, Chip, ErrorText, Muted, Screen, TextField } from '@/components/ui';
 import { useActivePortfolio } from '@/hooks/useActivePortfolio';
 import { createTransaction, getOrCreateManualWallet } from '@/lib/clients';
-import { TYPE_LABELS } from '@/lib/labels';
 import { spacing } from '@/lib/theme';
 
 // Acepta coma o punto decimal (teclados en español usan coma).
@@ -59,8 +58,8 @@ export default function NewTransactionScreen() {
     <Screen>
       <Muted>Portafolio: {portfolio.name}</Muted>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
-        {(Object.keys(TYPE_LABELS) as TransactionType[]).map((key) => (
-          <Chip key={key} label={TYPE_LABELS[key]} selected={type === key} onPress={() => setType(key)} />
+        {(Object.keys(TRANSACTION_TYPE_LABELS) as TransactionType[]).map((key) => (
+          <Chip key={key} label={TRANSACTION_TYPE_LABELS[key]} selected={type === key} onPress={() => setType(key)} />
         ))}
       </ScrollView>
       <TextField

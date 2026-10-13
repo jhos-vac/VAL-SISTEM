@@ -1,9 +1,7 @@
 import type { Portfolio } from '@val-sistem/shared';
 import { resolveApiUrl } from '@/lib/config';
 import { describeAge } from '@/lib/staleness';
-import { resolveActivePortfolio } from '@/hooks/useActivePortfolio';
-
-jest.mock('@/lib/clients', () => ({ ALL_PORTFOLIOS_ID: 'all', fetchPortfolios: jest.fn() }));
+import { resolveActivePortfolio } from '@val-sistem/shared';
 
 describe('resolveApiUrl', () => {
   it('usa EXPO_PUBLIC_API_URL sin barra final', () => {

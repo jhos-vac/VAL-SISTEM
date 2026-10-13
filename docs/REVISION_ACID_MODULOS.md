@@ -271,7 +271,39 @@ alto).**
   - Mover a `shared` lo puro común: `resolveActivePortfolio`, las
     etiquetas y, más adelante, un cliente HTTP con `fetch` inyectable.
 
-## 3. Plan propuesto
+## 3. Estado (13 de octubre de 2026)
+
+Todo lo anterior quedó resuelto en los commits de las fases 1 a 4, salvo
+lo marcado como pendiente.
+
+| Hallazgo | Solución aplicada |
+| --- | --- |
+| A1 | El backend rechaza movimientos manuales en wallets `exchange`; web y móvil usan siempre una wallet `manual`. |
+| A2 | `SELECT … FOR UPDATE` sobre la wallet antes de leer la posición. |
+| A3 | Revocación condicional (`updateMany … revokedAt: null`, `count === 1`) en la misma transacción que emite el token nuevo. |
+| A4 | `PositionLedgerService`: escritura en lote (unas 10 consultas fijas) y timeout de 30 s. **Pendiente (tuyo):** mover Neon a una región europea. |
+| M1, M2, M3 | Transacciones; P2002 → 409 en el registro. |
+| M4 | Lock por cuenta (`pg_try_advisory_xact_lock`): el segundo sync devuelve `skipped`. Jobs con lease en `job_leases`. |
+| M5 | Índices únicos en `user_settings.user_ID` y `devices(user_ID, push_token)` (la migración limpia duplicados antes) y `upsert`. |
+| B1 | Snapshot e ítems en una transacción. |
+| B2 | Lock por usuario en create/update/getOrCreateDefault de portafolios. |
+| B3 | Documentado: los assets nunca se borran, solo se desactivan. **Pendiente:** limpieza al borrar una cuenta, cuando exista esa función. |
+| C1 | Exchange persiste solo por `ExchangeAccountStore` y `PositionLedgerService` (exportados por Portfolio). |
+| C2 | Un módulo Prisma por base, sin `@Global`, y una regla de ESLint (`no-restricted-imports`) que falla si un módulo importa el cliente de otra base. |
+| C3 | `PortfolioService.getOrCreateDefault`. |
+| C4 | Módulo `jobs/` con lease; los servicios de dominio solo exponen el trabajo. |
+| C5 | `users/public-user.ts`. |
+| C6 | `resolveActivePortfolio`, `ALL_PORTFOLIOS_ID` y las etiquetas de tipo viven en `shared` (web y móvil los usan). `src/contracts.spec.ts` verifica en compilación que los DTOs del backend encajan en los tipos de `shared`. |
+
+Hallazgos que aparecieron al arreglar:
+
+- Las transacciones del sync se informaban como `source: 'manual'`. Ahora
+  son `'sync'`.
+- La primera versión de la regla de ESLint no protegía nada, porque en
+  flat config la última definición de una regla pisa a las anteriores. Se
+  rehízo por área y se verificó con un archivo que la viola.
+
+## 4. Plan propuesto (original)
 
 | Fase | Contenido | Por qué primero |
 | --- | --- | --- |

@@ -6,7 +6,10 @@ import {
 import { PortfolioPrismaService } from '../prisma/portfolio-prisma.service';
 import { PortfolioService } from './portfolio.service';
 import { MarketService } from '../market/market.service';
-import { CreateTransactionDto } from './dto/create-transaction.dto';
+import {
+  CreateTransactionDto,
+  type TransactionTypeCode,
+} from './dto/create-transaction.dto';
 import {
   applyMovement,
   InsufficientQuantityError,
@@ -17,7 +20,7 @@ export interface TransactionDto {
   id: string;
   portfolioId: string;
   assetSymbol: string;
-  type: string;
+  type: TransactionTypeCode;
   quantity: number;
   price: number;
   fee: number;
@@ -220,13 +223,16 @@ export class TransactionService {
       id: t.id,
       portfolioId: t.assetPosition.wallet.portfolioId,
       assetSymbol: assets.get(t.assetPosition.assetId)?.symbol ?? '???',
-      type: t.transactionType.code,
+      // El catálogo de tipos se siembra con exactamente estos códigos.
+      type: t.transactionType.code as TransactionTypeCode,
       quantity: t.quantity,
       price: t.price,
       fee: t.fee,
       notes: t.notes ?? undefined,
       executedAt: t.executedAt.toISOString(),
-      source: 'manual',
+      // Las wallets de exchange solo tienen lo que trae el sync.
+      source:
+        t.assetPosition.wallet.walletType === 'exchange' ? 'sync' : 'manual',
     }));
   }
 }

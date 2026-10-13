@@ -3,7 +3,7 @@ import { Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { Body, Card, Loading, Muted, Row, Screen } from '@/components/ui';
 import { useActivePortfolio } from '@/hooks/useActivePortfolio';
-import { ALL_PORTFOLIOS_ID } from '@/lib/clients';
+import { ALL_PORTFOLIOS_ID } from '@val-sistem/shared';
 import { useTheme } from '@/lib/theme';
 import { usePortfolioSelection } from '@/store/portfolio';
 

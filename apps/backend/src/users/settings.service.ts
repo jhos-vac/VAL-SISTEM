@@ -78,7 +78,7 @@ export class SettingsService {
   }
 
   async getSettings(userId: string): Promise<UserSettingsDto> {
-    const settings = await this.prisma.userSetting.findFirst({
+    const settings = await this.prisma.userSetting.findUnique({
       where: { userId },
       include: { language: true, currencie: true, timezone: true },
     });
@@ -106,10 +106,8 @@ export class SettingsService {
     };
   }
 
-  // Upsert manual (UserSetting no tiene @unique en userId todavía, así
-  // que no se puede usar prisma upsert directo) — cambios parciales: lo
-  // que no venga en el DTO se conserva tal cual estaba (o el default, si
-  // es la primera vez que el usuario guarda algo).
+  // Cambios parciales: lo que no venga en el DTO se conserva tal cual
+  // estaba (o el default, si es la primera vez que el usuario guarda algo).
   async updateSettings(
     userId: string,
     dto: UpdateSettingsDto,
@@ -154,15 +152,13 @@ export class SettingsService {
       twoFactorEnabled: dto.twoFactorEnabled ?? current.twoFactorEnabled,
     };
 
-    const existing = await this.prisma.userSetting.findFirst({
+    // Una fila por usuario (userId es único): upsert atómico, sin carrera
+    // entre leer y crear.
+    const saved = await this.prisma.userSetting.upsert({
       where: { userId },
+      update: data,
+      create: { userId, ...data },
     });
-    const saved = existing
-      ? await this.prisma.userSetting.update({
-          where: { id: existing.id },
-          data,
-        })
-      : await this.prisma.userSetting.create({ data: { userId, ...data } });
 
     return {
       language: languageCode,

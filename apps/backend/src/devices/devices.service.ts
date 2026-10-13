@@ -39,31 +39,19 @@ export class DevicesService {
   // lastSeenAt/appVersion en vez de crear una fila nueva cada vez que
   // abre la app.
   async register(userId: string, dto: RegisterDeviceDto): Promise<DeviceDto> {
-    const existing = await this.prisma.device.findFirst({
-      where: { userId, pushToken: dto.pushToken },
+    // Un dispositivo por (usuario, push token): volver a registrarlo
+    // actualiza sus datos en vez de duplicarlo.
+    const details = {
+      deviceName: dto.deviceName,
+      platform: dto.platform,
+      os: dto.os,
+      appVersion: dto.appVersion,
+    };
+    const device = await this.prisma.device.upsert({
+      where: { userId_pushToken: { userId, pushToken: dto.pushToken } },
+      update: { ...details, lastSeenAt: new Date() },
+      create: { userId, pushToken: dto.pushToken, ...details },
     });
-
-    const device = existing
-      ? await this.prisma.device.update({
-          where: { id: existing.id },
-          data: {
-            deviceName: dto.deviceName,
-            platform: dto.platform,
-            os: dto.os,
-            appVersion: dto.appVersion,
-            lastSeenAt: new Date(),
-          },
-        })
-      : await this.prisma.device.create({
-          data: {
-            userId,
-            deviceName: dto.deviceName,
-            platform: dto.platform,
-            os: dto.os,
-            appVersion: dto.appVersion,
-            pushToken: dto.pushToken,
-          },
-        });
 
     return toDto(device);
   }

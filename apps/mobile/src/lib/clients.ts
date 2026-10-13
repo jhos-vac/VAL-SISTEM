@@ -17,8 +17,6 @@ import { requestWithAuth } from './session';
 
 // --- Portfolio ---
 
-export const ALL_PORTFOLIOS_ID = 'all';
-
 export const fetchPortfolios = () => requestWithAuth<Portfolio[]>('/portfolios');
 
 export const fetchSummary = (portfolioId: string) =>

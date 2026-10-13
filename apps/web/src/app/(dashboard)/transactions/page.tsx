@@ -4,17 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/Card";
-import { formatCurrency, formatQuantity } from "@val-sistem/shared";
+import { formatCurrency, formatQuantity, TRANSACTION_TYPE_LABELS } from "@val-sistem/shared";
 import type { TransactionType } from "@val-sistem/shared";
 import { fetchTransactions } from "@/lib/portfolio-client";
 import { useDefaultPortfolio } from "@/hooks/useDefaultPortfolio";
-
-const TYPE_LABEL: Record<string, string> = {
-  buy: "Compra",
-  sell: "Venta",
-  transfer_in: "Transferencia entrante",
-  transfer_out: "Transferencia saliente",
-};
 
 const TYPE_COLOR: Record<string, string> = {
   buy: "text-status-good",
@@ -125,7 +118,7 @@ export default function TransactionsPage() {
                     <span
                       className={`text-xs font-semibold uppercase tracking-wide ${TYPE_COLOR[t.type]}`}
                     >
-                      {TYPE_LABEL[t.type]}
+                      {TRANSACTION_TYPE_LABELS[t.type]}
                     </span>
                   </td>
                   <td className="py-2 text-right tabular-nums">{formatQuantity(t.quantity)}</td>

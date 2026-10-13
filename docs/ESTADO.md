@@ -104,6 +104,23 @@ backend juntos (`scripts/dev-reset.js`).
     sin ganancia.
   - Se borra `apps/web/src/lib/mock-data.ts`, que estaba sin uso.
 
+- **13 oct. Revisión ACID y de módulos** (ver
+  `docs/REVISION_ACID_MODULOS.md`, con todo lo resuelto):
+  - Transacciones y locks donde había carreras o pasos sueltos.
+  - El sync escribe en lote con un lock por cuenta.
+  - Jobs centralizados en `jobs/` con lease.
+  - Exchange ya no escribe en la base Portfolio.
+  - Un módulo Prisma por base, con regla de lint.
+  - Contratos de la API verificados contra `shared`.
+- **Migraciones nuevas que hay que aplicar en producción ANTES del deploy
+  del backend:**
+  - Portfolio: `20261013120000_capital_assets` y
+    `20261013130000_job_leases`. Se aplican con
+    `npm run db:deploy:portfolio`.
+  - User: `20261013140000_unique_settings_devices`. Antes de crear los
+    índices únicos borra los ajustes y dispositivos duplicados. Se aplica
+    con `npm run db:deploy:user`.
+
 ## Cómo se calcula el costo y la ganancia
 
 Método: **costo promedio ponderado**.
