@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PortfolioPrismaService } from '../prisma/portfolio-prisma.service';
 import { summarizePositions } from './cost-basis';
+import { snapshotItemsByAsset } from './snapshot-items';
 import { PortfolioService } from './portfolio.service';
 
 function startOfUtcDay(date: Date): Date {
@@ -102,16 +103,10 @@ export class PortfolioSnapshotService {
       await tx.portfolioSnapshotItems.deleteMany({
         where: { snapshotId: snapshot.id },
       });
-      if (positions.length > 0) {
+      const items = snapshotItemsByAsset(positions, totalValue);
+      if (items.length > 0) {
         await tx.portfolioSnapshotItems.createMany({
-          data: positions.map((p) => ({
-            snapshotId: snapshot.id,
-            assetId: p.assetId,
-            quantity: p.quantity,
-            value: p.currentValue,
-            allocation:
-              totalValue > 0 ? (p.currentValue / totalValue) * 100 : 0,
-          })),
+          data: items.map((item) => ({ snapshotId: snapshot.id, ...item })),
         });
       }
     });
