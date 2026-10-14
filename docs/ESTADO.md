@@ -1,6 +1,6 @@
 # Estado del proyecto VAL-SISTEM
 
-_Actualizado: 13 de octubre de 2026._ Este archivo reemplaza a los
+_Actualizado: 14 de octubre de 2026._ Este archivo reemplaza a los
 documentos de estado del proyecto (`Estado_Web_VAL-SISTEM.md`,
 `Estado_Backend_VAL-BACKEND.md`), que quedaron congelados al 29 de
 septiembre. La lista de actividades vive en la Bitácora del MVP.
@@ -130,6 +130,33 @@ backend juntos (`scripts/dev-reset.js`).
     portafolios, posiciones, cuentas de Binance, watchlists y monedas
     capital.
   - Un job repite la limpieza durante 30 días.
+
+- **14 oct. Seguimiento, metas, estrategias y portafolios públicos**
+  (web; migración `20261014120000_goals_strategies_public`):
+  - **Por compra** (`/lots`, `GET /positions/lots`):
+    - Cada compra es un lote con su precio, lo que queda, su valor y su
+      ganancia. Las ventas consumen lotes FIFO, solo en esta vista; el
+      resumen sigue usando el costo promedio.
+    - El saldo sin compra registrada (depósitos) se muestra aparte, al
+      costo promedio.
+  - **Metas** (`/goals`):
+    - Valor objetivo con fecha opcional (progreso, faltante, ritmo
+      mensual).
+    - % de ganancia sobre lo invertido.
+    - Del portafolio o de un activo.
+  - **Estrategia** (`/strategy`):
+    - Asignación objetivo por activo, con sugerencias de compra o venta
+      para rebalancear.
+    - Planes DCA, con lo planeado contra lo comprado (cuenta todas las
+      compras del activo desde el inicio del plan).
+  - **Explorar** (`/explore`):
+    - Ranking opt-in por rendimiento sobre lo invertido. Solo muestra
+      porcentajes y alias, nunca montos ni datos del dueño.
+    - Copiar crea un portafolio con esa composición como asignación
+      objetivo.
+  - Verificado de punta a punta contra un Postgres real (24 casos) y en el
+    navegador.
+  - **Pendiente:** estas pantallas en la app móvil.
 
 ## Cómo se calcula el costo y la ganancia
 

@@ -86,7 +86,13 @@ export default function PositionsPage() {
                   {group.positions.map((pos) => (
                     <tr key={pos.id} className="border-t border-border-hairline">
                       <td className="py-2 font-medium">
-                        {pos.assetSymbol}
+                        <Link
+                          href={`/lots?asset=${pos.assetSymbol}`}
+                          className="hover:text-primary hover:underline"
+                          title="Ver cada compra de este activo"
+                        >
+                          {pos.assetSymbol}
+                        </Link>
                         {pos.isCapital ? (
                           <span
                             title="Moneda capital: no cuenta en la ganancia"

@@ -13,6 +13,13 @@ import { CapitalAssetsController } from './capital-assets.controller';
 import { ExchangeAccountStore } from './exchange-account.store';
 import { PositionLedgerService } from './position-ledger.service';
 import { UserDataPurgeService } from './user-data-purge.service';
+import { LotsService } from './lots.service';
+import { GoalsService } from './goals.service';
+import { GoalsController } from './goals.controller';
+import { StrategyService } from './strategy.service';
+import { StrategyController } from './strategy.controller';
+import { PublicPortfoliosService } from './public-portfolios.service';
+import { PublicPortfoliosController } from './public-portfolios.controller';
 
 @Module({
   // MarketModule exporta MarketService — Portfolio lo usa para enriquecer
@@ -24,6 +31,9 @@ import { UserDataPurgeService } from './user-data-purge.service';
     PositionsController,
     TransactionsController,
     CapitalAssetsController,
+    GoalsController,
+    StrategyController,
+    PublicPortfoliosController,
   ],
   providers: [
     PortfolioService,
@@ -34,6 +44,10 @@ import { UserDataPurgeService } from './user-data-purge.service';
     ExchangeAccountStore,
     PositionLedgerService,
     UserDataPurgeService,
+    LotsService,
+    GoalsService,
+    StrategyService,
+    PublicPortfoliosService,
   ],
   // API pública del módulo: lo que otros módulos (Exchange, jobs) pueden
   // usar. Nadie más escribe en la base Portfolio.

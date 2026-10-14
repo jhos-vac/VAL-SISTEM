@@ -4,7 +4,7 @@ import { lockForTransaction } from '../common/db/advisory-lock';
 
 // Borra todo lo de un usuario en la base Portfolio, en una transacción:
 // portafolios con sus wallets, posiciones, transacciones, transferencias,
-// snapshots, metas y resúmenes; cuentas de exchange con su historial;
+// snapshots, metas, estrategias (asignación objetivo y DCA) y resúmenes; cuentas de exchange con su historial;
 // watchlists y monedas capital. Idempotente: correrlo de nuevo sobre un
 // usuario ya limpio no hace nada.
 @Injectable()
@@ -56,6 +56,12 @@ export class UserDataPurgeService {
           where: { portfolioId: { in: portfolioIds } },
         });
         await tx.portfolioAssetSummary.deleteMany({
+          where: { portfolioId: { in: portfolioIds } },
+        });
+        await tx.targetAllocation.deleteMany({
+          where: { portfolioId: { in: portfolioIds } },
+        });
+        await tx.dcaPlan.deleteMany({
           where: { portfolioId: { in: portfolioIds } },
         });
         await tx.portfolio.deleteMany({ where: { id: { in: portfolioIds } } });

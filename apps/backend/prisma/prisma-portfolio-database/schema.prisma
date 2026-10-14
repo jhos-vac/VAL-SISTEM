@@ -15,6 +15,13 @@ model Portfolio {
   description  String
   baseCurrency String   @map("base_currency")
   isDefault    Boolean  @default(false) @map("is_default")
+  // Publicación opt-in en el ranking: solo se muestran % de rendimiento y
+  // composición, nunca montos. El alias lo elige el dueño al publicar.
+  isPublic     Boolean   @default(false) @map("is_public")
+  publicAlias  String?   @map("public_alias")
+  publishedAt  DateTime? @map("published_at")
+  // Portafolio público del que se copió la composición (si aplica).
+  copiedFromId String?   @map("copied_from_id") @db.Uuid
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @default(now()) @map("updated_at")
   wallets      Wallet[]
@@ -22,7 +29,10 @@ model Portfolio {
   investmentGoals        InvestmentGoal[]
   portfolioSnapshots     PortfolioSnapshot[]
   portfolioAssetSummaries PortfolioAssetSummary[]
+  targetAllocations      TargetAllocation[]
+  dcaPlans               DcaPlan[]
 
+  @@index([isPublic])
   @@map("portfolios")
 }
 
@@ -154,21 +164,65 @@ model WatchListAsset {
   @@map("watchlist_assets")
 }
 
+// Meta de un portafolio (o de un activo dentro de él):
+//  - kind 'target_value': llegar a targetValue (en la moneda base),
+//    opcionalmente antes de deadline.
+//  - kind 'gain_percent': llegar a targetPercent de ganancia sobre lo
+//    invertido (p.ej. 10 = +10 %).
+// Las columnas targetPrice/targetQuantity vienen del diseño original y
+// quedan opcionales.
 model InvestmentGoal {
-  id             String   @id @default(uuid()) @db.Uuid
-  portfolioId    String   @map("portfolio_id") @db.Uuid
-  assetId        String   @map("asset_id") @db.Uuid
-  targetPrice    Float    @map("target_price")
-  targetQuantity Float    @map("target_quantity")
-  targetValue    Float    @map("target_value")
-  deadline       DateTime @map("deadline")
-  isCompleted    Boolean  @default(false) @map("is_completed")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @default(now()) @map("updated_at")
+  id             String    @id @default(uuid()) @db.Uuid
+  portfolioId    String    @map("portfolio_id") @db.Uuid
+  assetId        String?   @map("asset_id") @db.Uuid
+  name           String    @default("")
+  kind           String    @default("target_value")
+  targetValue    Float?    @map("target_value")
+  targetPercent  Float?    @map("target_percent")
+  targetPrice    Float?    @map("target_price")
+  targetQuantity Float?    @map("target_quantity")
+  deadline       DateTime? @map("deadline")
+  isCompleted    Boolean   @default(false) @map("is_completed")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @map("updated_at")
 
   portfolio Portfolio @relation(fields: [portfolioId], references: [id])
 
   @@map("investment_goals")
+}
+
+// Estrategia: % objetivo de cada activo dentro del portafolio. La suma
+// puede ser menor a 100 (el resto queda sin asignar).
+model TargetAllocation {
+  id            String @id @default(uuid()) @db.Uuid
+  portfolioId   String @map("portfolio_id") @db.Uuid
+  assetId       String @map("asset_id") @db.Uuid
+  targetPercent Float  @map("target_percent")
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id])
+
+  @@unique([portfolioId, assetId])
+  @@map("target_allocations")
+}
+
+// Estrategia: plan de compras periódicas (DCA) de un activo.
+// frequency: 'weekly' | 'biweekly' | 'monthly'.
+model DcaPlan {
+  id          String    @id @default(uuid()) @db.Uuid
+  portfolioId String    @map("portfolio_id") @db.Uuid
+  assetId     String    @map("asset_id") @db.Uuid
+  amount      Float
+  frequency   String
+  startDate   DateTime  @map("start_date")
+  endDate     DateTime? @map("end_date")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @map("updated_at")
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id])
+
+  @@index([portfolioId])
+  @@map("dca_plans")
 }
 
 model PortfolioSnapshot {

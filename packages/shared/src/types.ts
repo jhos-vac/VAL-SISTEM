@@ -43,6 +43,10 @@ export interface Portfolio {
   name: string;
   isDefault: boolean;
   baseCurrency: Currency;
+  // Publicación en el ranking (la vista virtual "General" no los tiene).
+  isPublic?: boolean;
+  publicAlias?: string | null;
+  copiedFromId?: string | null;
 }
 
 export interface PortfolioSummary {

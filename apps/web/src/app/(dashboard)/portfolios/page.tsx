@@ -14,6 +14,7 @@ import {
   updatePortfolio,
 } from "@/lib/portfolio-client";
 import type { Portfolio } from "@val-sistem/shared";
+import { PublishControl } from "@/components/portfolio/PublishControl";
 
 // RFW-03: crear, editar, marcar predeterminado, cambiar entre
 // portafolios. "Cambiar entre portafolios" vive en el selector del
@@ -238,6 +239,7 @@ export default function PortfoliosPage() {
                     </button>
                   </div>
                 </div>
+                <PublishControl portfolio={p} />
               </Card>
             ),
           )}

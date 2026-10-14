@@ -15,6 +15,11 @@ import type { TransactionDto } from './portfolio/transaction.service';
 import type { ExchangeAccountDto } from './exchange/exchange.service';
 import type { TickerDto } from './market/market.service';
 import type { PublicUser } from './users/public-user';
+import type { AssetLotsDto } from './portfolio/lots.service';
+import type { GoalDto } from './portfolio/goals.service';
+import type { DcaPlanDto } from './portfolio/strategy.service';
+import type { RebalancePlan } from './portfolio/strategy';
+import type { PublicPortfolioDto } from './portfolio/public-portfolios.service';
 
 // Cómo viaja un DTO por JSON: las fechas llegan como string.
 type Json<T> = {
@@ -36,11 +41,16 @@ export type ApiContracts = [
   Expect<Fits<ExchangeAccountDto, Shared.ExchangeAccount>>,
   Expect<Fits<TickerDto, Shared.MarketTicker>>,
   Expect<Fits<PublicUser, Shared.User>>,
+  Expect<Fits<AssetLotsDto, Shared.AssetLots>>,
+  Expect<Fits<GoalDto, Shared.Goal>>,
+  Expect<Fits<DcaPlanDto, Shared.DcaPlan>>,
+  Expect<Fits<RebalancePlan, Shared.RebalancePlan>>,
+  Expect<Fits<PublicPortfolioDto, Shared.PublicPortfolio>>,
 ];
 
 describe('contratos API backend ↔ @val-sistem/shared', () => {
   it('se verifican en tiempo de compilación (ver ApiContracts)', () => {
-    const checked: ApiContracts['length'] = 9;
-    expect(checked).toBe(9);
+    const checked: ApiContracts['length'] = 14;
+    expect(checked).toBe(14);
   });
 });

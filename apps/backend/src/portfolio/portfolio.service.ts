@@ -19,6 +19,10 @@ export interface PortfolioDto {
   description: string;
   isDefault: boolean;
   baseCurrency: string;
+  // Publicación en el ranking (ver PublicPortfoliosService).
+  isPublic: boolean;
+  publicAlias: string | null;
+  copiedFromId: string | null;
 }
 
 export interface AssetPositionDto {
@@ -79,6 +83,9 @@ export class PortfolioService {
     description: string;
     isDefault: boolean;
     baseCurrency: string;
+    isPublic: boolean;
+    publicAlias: string | null;
+    copiedFromId: string | null;
   }): PortfolioDto {
     return {
       id: p.id,
@@ -86,6 +93,9 @@ export class PortfolioService {
       description: p.description,
       isDefault: p.isDefault,
       baseCurrency: p.baseCurrency,
+      isPublic: p.isPublic,
+      publicAlias: p.publicAlias,
+      copiedFromId: p.copiedFromId,
     };
   }
 
@@ -252,7 +262,7 @@ export class PortfolioService {
     userId: string,
   ): Promise<EnrichedPosition[]> {
     if (portfolioIds.length === 0) return [];
-    const [positions, capitalRows] = await Promise.all([
+    const [positions, capitalAssetIds] = await Promise.all([
       this.prisma.assetPosition.findMany({
         where: {
           wallet: { portfolioId: { in: portfolioIds }, isActive: true },
@@ -260,12 +270,8 @@ export class PortfolioService {
         },
         include: { wallet: true },
       }),
-      this.prisma.capitalAsset.findMany({
-        where: { userId },
-        select: { assetId: true },
-      }),
+      this.getCapitalAssetIds(userId),
     ]);
-    const capitalAssetIds = new Set(capitalRows.map((r) => r.assetId));
 
     if (positions.length === 0) return [];
 
@@ -306,6 +312,16 @@ export class PortfolioService {
   // Usado por PortfolioSnapshotService para saber sobre qué portafolios
   // correr el snapshot diario — no filtra por usuario a propósito (es un
   // job de sistema, no un endpoint).
+  // Monedas capital del usuario (ver CapitalAsset): no cuentan como
+  // inversión.
+  async getCapitalAssetIds(userId: string): Promise<Set<string>> {
+    const rows = await this.prisma.capitalAsset.findMany({
+      where: { userId },
+      select: { assetId: true },
+    });
+    return new Set(rows.map((r) => r.assetId));
+  }
+
   async listAllPortfolioIds(): Promise<string[]> {
     const portfolios = await this.prisma.portfolio.findMany({
       select: { id: true },

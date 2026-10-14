@@ -5,7 +5,11 @@ import { usePathname } from "next/navigation";
 import {
   IconArrowsExchange,
   IconBank,
+  IconCompass,
   IconGrid,
+  IconLayers,
+  IconTarget,
+  IconUsers,
   IconList,
   IconPieChart,
   IconSettings,
@@ -24,8 +28,17 @@ const NAV_GROUPS = [
     label: "Activos",
     items: [
       { href: "/positions", label: "Posiciones", icon: IconList },
+      { href: "/lots", label: "Por compra", icon: IconLayers },
       { href: "/transactions", label: "Transacciones", icon: IconArrowsExchange },
       { href: "/market", label: "Mercado", icon: IconTrendingUp },
+    ],
+  },
+  {
+    label: "Planificación",
+    items: [
+      { href: "/goals", label: "Metas", icon: IconTarget },
+      { href: "/strategy", label: "Estrategia", icon: IconCompass },
+      { href: "/explore", label: "Explorar", icon: IconUsers },
     ],
   },
   {
