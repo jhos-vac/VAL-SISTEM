@@ -34,6 +34,8 @@ export interface TransactionFilters {
   type?: string;
   from?: string;
   to?: string;
+  // Las monedas capital (p. ej. USDT) se ocultan salvo que se pidan.
+  includeCapital?: boolean;
 }
 
 @Injectable()
@@ -189,11 +191,22 @@ export class TransactionService {
       assetId = asset.id;
     }
 
+    // Filtrar por un símbolo concreto es pedirlo explícitamente, aunque sea
+    // capital.
+    const hiddenCapital =
+      filters.includeCapital || assetId
+        ? []
+        : [...(await this.portfolioService.getCapitalAssetIds(userId))];
+
     const transactions = await this.prisma.transaction.findMany({
       where: {
         assetPosition: {
           wallet: { portfolioId: { in: portfolioIds } },
-          ...(assetId ? { assetId } : {}),
+          ...(assetId
+            ? { assetId }
+            : hiddenCapital.length > 0
+              ? { assetId: { notIn: hiddenCapital } }
+              : {}),
         },
         ...(filters.type ? { transactionType: { code: filters.type } } : {}),
         ...(filters.from || filters.to

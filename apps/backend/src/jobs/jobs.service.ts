@@ -87,18 +87,40 @@ export class JobsService implements OnApplicationBootstrap, OnModuleDestroy {
   // así el próximo tick (de cualquier instancia) reintenta.
   async runOnce(job: JobDefinition): Promise<'ran' | 'skipped' | 'failed'> {
     let acquired = false;
+    const startedAt = new Date();
     try {
       acquired = await this.leases.tryAcquire(job.name, job.everyMs * 0.9);
       if (!acquired) return 'skipped';
       const result = await job.run();
       this.logger.log(`${job.name}: ${JSON.stringify(result)}`);
+      await this.record(job.name, { startedAt, ok: true });
       return 'ran';
     } catch (err) {
       this.logger.error(`${job.name} falló`, err);
       if (acquired) {
+        await this.record(job.name, {
+          startedAt,
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        });
         await this.leases.release(job.name).catch(() => undefined);
       }
       return 'failed';
     }
+  }
+
+  // Intervalo de cada job, para que el panel sepa si alguno está atrasado.
+  schedule(): { name: string; everyMs: number }[] {
+    return this.jobs.map(({ name, everyMs }) => ({ name, everyMs }));
+  }
+
+  // Guardar el resultado nunca debe tumbar el job.
+  private async record(
+    name: string,
+    run: { startedAt: Date; ok: boolean; error?: string },
+  ) {
+    await this.leases.recordRun(name, run).catch((err: unknown) => {
+      this.logger.warn(`${name}: no se pudo guardar el resultado`, err);
+    });
   }
 }

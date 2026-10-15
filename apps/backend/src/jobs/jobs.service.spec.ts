@@ -23,6 +23,7 @@ function setup(acquired: boolean) {
   const leases = {
     tryAcquire: jest.fn().mockResolvedValue(acquired),
     release: jest.fn().mockResolvedValue(undefined),
+    recordRun: jest.fn().mockResolvedValue(undefined),
   };
   const job = {
     name: 'test.job',
@@ -59,5 +60,24 @@ describe('JobsService.runOnce', () => {
     job.run.mockRejectedValueOnce(new Error('boom'));
     await expect(service.runOnce(job)).resolves.toBe('failed');
     expect(leases.release).toHaveBeenCalledWith('test.job');
+    expect(leases.recordRun).toHaveBeenCalledWith(
+      'test.job',
+      expect.objectContaining({ ok: false, error: 'boom' }),
+    );
+  });
+
+  it('guarda el resultado de una corrida exitosa', async () => {
+    const { service, leases, job } = setup(true);
+    await service.runOnce(job);
+    expect(leases.recordRun).toHaveBeenCalledWith(
+      'test.job',
+      expect.objectContaining({ ok: true }),
+    );
+  });
+
+  it('si no se puede guardar el resultado el job igual cuenta como corrido', async () => {
+    const { service, leases, job } = setup(true);
+    leases.recordRun.mockRejectedValueOnce(new Error('db caída'));
+    await expect(service.runOnce(job)).resolves.toBe('ran');
   });
 });

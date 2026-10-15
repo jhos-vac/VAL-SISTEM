@@ -1,3 +1,4 @@
+import { PortfolioAdminService } from './portfolio-admin.service';
 import { Module } from '@nestjs/common';
 import { MarketModule } from '../market/market.module';
 import { PortfolioPrismaModule } from '../prisma/prisma.module';
@@ -48,6 +49,7 @@ import { PublicPortfoliosController } from './public-portfolios.controller';
     GoalsService,
     StrategyService,
     PublicPortfoliosService,
+    PortfolioAdminService,
   ],
   // API pública del módulo: lo que otros módulos (Exchange, jobs) pueden
   // usar. Nadie más escribe en la base Portfolio.
@@ -57,6 +59,7 @@ import { PublicPortfoliosController } from './public-portfolios.controller';
     ExchangeAccountStore,
     PositionLedgerService,
     UserDataPurgeService,
+    PortfolioAdminService,
   ],
 })
 export class PortfolioModule {}

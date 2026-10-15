@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ScrollView } from 'react-native';
+import { ScrollView, Switch, View } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { TRANSACTION_TYPE_LABELS, type TransactionType } from '@val-sistem/shared';
@@ -13,11 +13,12 @@ import { spacing } from '@/lib/theme';
 export default function TransactionsScreen() {
   const { portfolio, isAggregate } = useActivePortfolio();
   const [type, setType] = useState<TransactionType | undefined>();
+  const [includeCapital, setIncludeCapital] = useState(false);
   const currency = portfolio?.baseCurrency ?? 'USD';
 
   const transactions = useQuery({
-    queryKey: ['transactions', portfolio?.id, type],
-    queryFn: () => fetchTransactions({ portfolioId: portfolio!.id, type }),
+    queryKey: ['transactions', portfolio?.id, type, includeCapital],
+    queryFn: () => fetchTransactions({ portfolioId: portfolio!.id, type, includeCapital }),
     enabled: !!portfolio,
   });
 
@@ -33,6 +34,12 @@ export default function TransactionsScreen() {
           <Chip key={key} label={TRANSACTION_TYPE_LABELS[key]} selected={type === key} onPress={() => setType(key)} />
         ))}
       </ScrollView>
+      <Row>
+        <Muted>Mostrar capital (USDT…)</Muted>
+        <View>
+          <Switch value={includeCapital} onValueChange={setIncludeCapital} accessibilityLabel="Mostrar capital" />
+        </View>
+      </Row>
       {transactions.isLoading ? <Loading /> : null}
       {transactions.error && !transactions.data ? <ErrorText>{transactions.error.message}</ErrorText> : null}
       {transactions.data?.length === 0 ? (

@@ -31,6 +31,7 @@ export class TransactionsController {
     @Query('type') type?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('includeCapital') includeCapital?: string,
   ) {
     if (!portfolioId) {
       throw new BadRequestException('Falta el query param portfolioId');
@@ -40,6 +41,7 @@ export class TransactionsController {
       type,
       from,
       to,
+      includeCapital: includeCapital === 'true',
     });
   }
 }

@@ -20,6 +20,7 @@ import type { GoalDto } from './portfolio/goals.service';
 import type { DcaPlanDto } from './portfolio/strategy.service';
 import type { RebalancePlan } from './portfolio/strategy';
 import type { PublicPortfolioDto } from './portfolio/public-portfolios.service';
+import type { AdminService } from './admin/admin.service';
 
 // Cómo viaja un DTO por JSON: las fechas llegan como string.
 type Json<T> = {
@@ -29,6 +30,23 @@ type Json<T> = {
 // true solo si el DTO (tal como llega por JSON) es asignable al tipo
 // compartido.
 type Fits<Dto, SharedType> = [Json<Dto>] extends [SharedType] ? true : false;
+
+// Igual que Json pero en profundidad (respuestas con objetos anidados).
+type DeepJson<T> = T extends Date
+  ? string
+  : T extends (infer U)[]
+    ? DeepJson<U>[]
+    : T extends object
+      ? { [K in keyof T]: DeepJson<T[K]> }
+      : T;
+type FitsDeep<Dto, SharedType> = [DeepJson<Dto>] extends [SharedType]
+  ? true
+  : false;
+type AdminReturn<K extends keyof AdminService> = AdminService[K] extends (
+  ...args: never[]
+) => Promise<infer R>
+  ? R
+  : never;
 type Expect<T extends true> = T;
 
 export type ApiContracts = [
@@ -46,11 +64,17 @@ export type ApiContracts = [
   Expect<Fits<DcaPlanDto, Shared.DcaPlan>>,
   Expect<Fits<RebalancePlan, Shared.RebalancePlan>>,
   Expect<Fits<PublicPortfolioDto, Shared.PublicPortfolio>>,
+  Expect<FitsDeep<AdminReturn<'overview'>, Shared.AdminOverview>>,
+  Expect<FitsDeep<AdminReturn<'listUsers'>, Shared.AdminUserPage>>,
+  Expect<FitsDeep<AdminReturn<'health'>, Shared.AdminHealth>>,
+  Expect<
+    FitsDeep<AdminReturn<'listPublicPortfolios'>, Shared.AdminPublicPortfolio[]>
+  >,
 ];
 
 describe('contratos API backend ↔ @val-sistem/shared', () => {
   it('se verifican en tiempo de compilación (ver ApiContracts)', () => {
-    const checked: ApiContracts['length'] = 14;
-    expect(checked).toBe(14);
+    const checked: ApiContracts['length'] = 18;
+    expect(checked).toBe(18);
   });
 });

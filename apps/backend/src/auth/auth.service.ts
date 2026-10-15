@@ -217,7 +217,8 @@ export class AuthService {
       !stored ||
       stored.revokedAt ||
       stored.expiresAt < new Date() ||
-      stored.user.deletedAt
+      stored.user.deletedAt ||
+      stored.user.status !== 'Active'
     ) {
       throw new UnauthorizedException('Sesión inválida o expirada');
     }

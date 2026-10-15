@@ -24,9 +24,10 @@ export default function TransactionsPage() {
   const [assetSymbol, setAssetSymbol] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [includeCapital, setIncludeCapital] = useState(false);
 
   const { data: transactions, isLoading } = useQuery({
-    queryKey: ["transactions", portfolio?.id, type, assetSymbol, from, to],
+    queryKey: ["transactions", portfolio?.id, type, assetSymbol, from, to, includeCapital],
     queryFn: () =>
       fetchTransactions({
         portfolioId: portfolio!.id,
@@ -34,6 +35,7 @@ export default function TransactionsPage() {
         assetSymbol: assetSymbol || undefined,
         from: from || undefined,
         to: to || undefined,
+        includeCapital,
       }),
     enabled: !!portfolio,
   });
@@ -81,6 +83,14 @@ export default function TransactionsPage() {
             onChange={(e) => setTo(e.target.value)}
             className="rounded-md border border-border-hairline bg-background px-2 py-1"
           />
+          <label className="flex items-center gap-1.5 text-text-secondary">
+            <input
+              type="checkbox"
+              checked={includeCapital}
+              onChange={(e) => setIncludeCapital(e.target.checked)}
+            />
+            Mostrar capital (USDT…)
+          </label>
         </div>
 
         {loadingPortfolio || isLoading ? (

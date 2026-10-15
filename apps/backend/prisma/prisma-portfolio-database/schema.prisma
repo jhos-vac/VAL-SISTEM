@@ -313,6 +313,12 @@ model JobLease {
   name        String   @id
   lockedUntil DateTime @map("locked_until")
   lockedBy    String   @map("locked_by")
+  // Resultado de la última corrida (para el panel de administración).
+  lastStartedAt  DateTime? @map("last_started_at")
+  lastFinishedAt DateTime? @map("last_finished_at")
+  lastOk         Boolean?  @map("last_ok")
+  lastError      String?   @map("last_error")
+  lastDurationMs Int?      @map("last_duration_ms")
 
   @@map("job_leases")
 }

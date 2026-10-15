@@ -35,12 +35,15 @@ export interface TransactionFilters {
   portfolioId: string;
   type?: TransactionType;
   assetSymbol?: string;
+  // Las monedas capital (USDT…) se ocultan salvo que se pidan.
+  includeCapital?: boolean;
 }
 
 export function fetchTransactions(filters: TransactionFilters) {
   const params = new URLSearchParams({ portfolioId: filters.portfolioId });
   if (filters.type) params.set('type', filters.type);
   if (filters.assetSymbol) params.set('assetSymbol', filters.assetSymbol);
+  if (filters.includeCapital) params.set('includeCapital', 'true');
   return requestWithAuth<Transaction[]>(`/transactions?${params.toString()}`);
 }
 

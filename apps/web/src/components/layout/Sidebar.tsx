@@ -13,8 +13,15 @@ import {
   IconList,
   IconPieChart,
   IconSettings,
+  IconShield,
   IconTrendingUp,
 } from "@/components/icons";
+import { useIsAdmin } from "@/lib/admin-client";
+
+const ADMIN_GROUP = {
+  label: "Administración",
+  items: [{ href: "/admin", label: "Panel admin", icon: IconShield }],
+};
 
 const NAV_GROUPS = [
   {
@@ -52,6 +59,8 @@ const NAV_GROUPS = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const isAdmin = useIsAdmin();
+  const groups = isAdmin ? [...NAV_GROUPS, ADMIN_GROUP] : NAV_GROUPS;
 
   return (
     <aside className="hidden w-60 shrink-0 flex-col border-r border-border-hairline bg-surface md:flex">
@@ -65,7 +74,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 pb-4">
-        {NAV_GROUPS.map((group) => (
+        {groups.map((group) => (
           <div key={group.label}>
             <p className="mb-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
               {group.label}

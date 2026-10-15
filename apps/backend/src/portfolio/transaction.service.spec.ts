@@ -151,3 +151,47 @@ describe('TransactionService.create', () => {
     expect(tx.transaction.create).not.toHaveBeenCalled();
   });
 });
+
+describe('TransactionService.getHistory', () => {
+  function historySetup() {
+    type FindManyArgs = { where: { assetPosition: { assetId?: unknown } } };
+    const findMany = jest
+      .fn<Promise<unknown[]>, [FindManyArgs]>()
+      .mockResolvedValue([]);
+    const portfolio = {
+      resolveScope: jest.fn().mockResolvedValue(['p-1']),
+      getCapitalAssetIds: jest.fn().mockResolvedValue(new Set(['a-usdt'])),
+    };
+    const market = {
+      getAssetBySymbol: jest
+        .fn()
+        .mockResolvedValue({ id: 'a-usdt', symbol: 'USDT' }),
+    };
+    const service = new TransactionService(
+      { transaction: { findMany } } as unknown as PortfolioPrismaService,
+      portfolio as unknown as PortfolioService,
+      market as unknown as MarketService,
+    );
+    const whereAsset = () =>
+      findMany.mock.calls[0][0].where.assetPosition.assetId;
+    return { service, whereAsset };
+  }
+
+  it('oculta las monedas capital por defecto', async () => {
+    const { service, whereAsset } = historySetup();
+    await service.getHistory('u-1', 'p-1', {});
+    expect(whereAsset()).toEqual({ notIn: ['a-usdt'] });
+  });
+
+  it('las muestra si se piden', async () => {
+    const { service, whereAsset } = historySetup();
+    await service.getHistory('u-1', 'p-1', { includeCapital: true });
+    expect(whereAsset()).toBeUndefined();
+  });
+
+  it('filtrar por el símbolo capital lo muestra', async () => {
+    const { service, whereAsset } = historySetup();
+    await service.getHistory('u-1', 'p-1', { assetSymbol: 'USDT' });
+    expect(whereAsset()).toBe('a-usdt');
+  });
+});

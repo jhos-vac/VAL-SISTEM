@@ -38,6 +38,7 @@
     "db:reset:automation": "prisma migrate reset --force --config prisma/prisma-automation-database/prisma.config.ts",
     "db:seed:market": "tsx prisma/seed-market.ts",
     "db:seed:user": "tsx prisma/seed-user.ts",
+    "admin": "tsx prisma/admin-cli.ts",
     "db:seed:catalogs": "tsx prisma/seed-catalogs.ts",
     "db:seed:portfolio": "tsx prisma/seed-portfolio.ts",
     "db:deploy": "npm run db:deploy:user && npm run db:deploy:market && npm run db:deploy:portfolio && npm run db:deploy:automation",

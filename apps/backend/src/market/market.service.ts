@@ -393,4 +393,17 @@ export class MarketService {
     }
     return map;
   }
+
+  // Último ticker actualizado y cuántos mercados tienen precio, para ver en
+  // el panel de administración si el sync de precios está al día.
+  async tickerFreshness(): Promise<{
+    lastUpdatedAt: Date | null;
+    tickers: number;
+  }> {
+    const agg = await this.prisma.marketTicker.aggregate({
+      _max: { updated_at: true },
+      _count: { _all: true },
+    });
+    return { lastUpdatedAt: agg._max.updated_at, tickers: agg._count._all };
+  }
 }

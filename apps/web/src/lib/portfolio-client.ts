@@ -75,6 +75,8 @@ export interface TransactionFilters {
   type?: TransactionType;
   from?: string;
   to?: string;
+  // Las monedas capital (USDT…) se ocultan salvo que se pidan.
+  includeCapital?: boolean;
 }
 
 export function fetchTransactions(filters: TransactionFilters): Promise<Transaction[]> {
@@ -83,6 +85,7 @@ export function fetchTransactions(filters: TransactionFilters): Promise<Transact
   if (filters.type) params.set("type", filters.type);
   if (filters.from) params.set("from", filters.from);
   if (filters.to) params.set("to", filters.to);
+  if (filters.includeCapital) params.set("includeCapital", "true");
   return requestWithAuth<Transaction[]>(`/transactions?${params.toString()}`);
 }
 

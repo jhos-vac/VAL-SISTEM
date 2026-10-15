@@ -16,5 +16,6 @@ import { JobsService } from './jobs.service';
     AccountModule,
   ],
   providers: [JobLeaseService, JobsService],
+  exports: [JobLeaseService, JobsService],
 })
 export class JobsModule {}

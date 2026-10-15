@@ -147,3 +147,12 @@ export function IconRefresh({ className }: IconProps) {
     </svg>
   );
 }
+
+export function IconShield({ className }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M12 3l7.5 3v5.5c0 4.5-3.2 8.2-7.5 9.5-4.3-1.3-7.5-5-7.5-9.5V6L12 3z" />
+      <path d="M9 12l2 2 4-4" />
+    </svg>
+  );
+}

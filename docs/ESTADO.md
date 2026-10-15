@@ -80,6 +80,8 @@ backend juntos (`scripts/dev-reset.js`).
     - Plan: Metas (con alta y vista previa), Estrategia (editor +/- que no
       pasa del 100 %), Compras periódicas (DCA), Rendimiento por compra,
       Explorar (ranking y copia de portafolios públicos) y Mercado.
+    - Historial: las monedas capital (USDT…) se ocultan; un interruptor
+      "Mostrar capital" las trae (`GET /transactions?includeCapital=true`).
     - Posiciones ordenables (alfabético, ganancia, %, valor); tocar una abre
       sus compras. La lógica de orden y asignación vive en
       `@val-sistem/shared` y la comparten web y móvil.
@@ -203,6 +205,23 @@ Diferencias del sync de Binance (`computeCostBasisFromTrades`):
   mercado.
 - Cada sync reconstruye las posiciones de la wallet (modo espejo).
 
+## Panel de administración
+
+- Web `/admin`, visible solo con rol admin. El backend exige
+  `@Roles('admin')` en todo `/admin/*`.
+- Resumen: usuarios, actividad, altas por día y uso (portafolios,
+  transacciones, Binance, metas y DCA).
+- Usuarios: búsqueda, filtro por estado y suspender o reactivar.
+  Suspender cierra todas las sesiones; nadie puede suspenderse a sí mismo.
+- Salud: estado de cada job (última corrida, duración y error, guardados en
+  `job_leases`), antigüedad de los precios y acciones fallidas de las
+  últimas 24 h (`audit_logs`).
+- Públicos: lista con el email del dueño; despublicar borra el alias.
+- Dar o quitar el rol: `npm run admin -- grant <email>` y
+  `npm run admin -- revoke <email>` (en `apps/backend`, con el
+  `DATABASE_USER` de la base que corresponda). El usuario tiene que volver
+  a iniciar sesión.
+
 ## Pendiente
 
 ### Prioridad alta
@@ -212,7 +231,10 @@ Diferencias del sync de Binance (`computeCostBasisFromTrades`):
 - **Cold start de Render:** el plan gratuito duerme a los 15 min y pausa
   los jobs (precios, sync, snapshots). Se puede mitigar con un ping
   externo cada 10–14 min o con un plan pago.
-- Desactivar en producción las credenciales de prueba del seed.
+- Credenciales de prueba del seed: `db:seed:user` ya no crea los usuarios
+  de prueba fuera de una base local (salvo `SEED_TEST_USERS=true`). Falta
+  revisar producción con `npm run admin -- seed-users` y, si aparecen,
+  suspenderlos con `npm run admin -- seed-users --disable`.
 - Mantener revocada la API key de Binance que se compartió en el chat.
 
 ### Producto y plataforma

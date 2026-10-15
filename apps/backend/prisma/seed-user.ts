@@ -27,6 +27,11 @@ const prisma = new PrismaClient({
 
 const BCRYPT_SALT_ROUNDS = 12;
 
+function isLocalDatabase(url: string): boolean {
+  const host = new URL(url.trim()).hostname;
+  return ['localhost', '127.0.0.1', '::1', '[::1]'].includes(host);
+}
+
 // Credenciales de desarrollo/pruebas — no son secretos reales, están
 // pensadas para poder loguearse de inmediato en un entorno local recién
 // levantado. No usar estos valores en producción.
@@ -132,6 +137,18 @@ async function main() {
     create: { roleId: adminRole.id, permissionsId: syncPermission.id },
     update: {},
   });
+
+  // Los usuarios de prueba tienen contraseñas públicas (están en el repo):
+  // solo se crean en una base local, o si se pide explícitamente.
+  if (
+    !isLocalDatabase(connectionString!) &&
+    process.env.SEED_TEST_USERS !== 'true'
+  ) {
+    console.log(
+      'Seed Identity: roles y permisos listos. Usuarios de prueba omitidos (la base no es local; SEED_TEST_USERS=true para forzarlo).',
+    );
+    return;
+  }
 
   console.log('Seed Identity: usuarios de prueba...');
   const testUser = await upsertSeedUser(TEST_USER, userRole.id);
