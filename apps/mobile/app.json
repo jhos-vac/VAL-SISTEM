@@ -36,7 +36,9 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 160,
           "backgroundColor": "#F7F8FA",
-          "dark": { "backgroundColor": "#0B0E11" }
+          "dark": {
+            "backgroundColor": "#0B0E11"
+          }
         }
       ],
       [
@@ -47,11 +49,17 @@
       ],
       [
         "expo-notifications",
-        { "color": "#3B82F6" }
+        {
+          "color": "#3B82F6"
+        }
       ]
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "platforms": [
+      "ios",
+      "android"
+    ]
   }
 }
