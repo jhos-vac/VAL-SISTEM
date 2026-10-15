@@ -51,10 +51,10 @@ export interface Portfolio {
 
 export interface PortfolioSummary {
   portfolioId: string;
-  // Incluye las monedas capital (ver capitalValue).
+  // Valor del portafolio, SIN las monedas capital.
   totalValue: number;
-  // Parte del valor total en monedas capital (p.ej. USDT): no cuenta en
-  // invertido, ganancias ni variación 24h.
+  // Monedas capital (p.ej. USDT): se muestran solo aparte, como capital;
+  // no forman parte del portafolio, las ganancias ni la variación 24h.
   capitalValue: number;
   totalInvested: number;
   realizedPnl: number;
@@ -87,7 +87,7 @@ export interface AssetPosition {
   currentValue: number;
   realizedPnl: number;
   unrealizedPnl: number;
-  // Moneda capital del usuario: se muestra sin ganancia.
+  // Siempre false en /positions (el capital no se lista como posición).
   isCapital: boolean;
 }
 

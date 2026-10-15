@@ -59,10 +59,14 @@ export class StrategyService {
     portfolioId: string,
   ): Promise<RebalancePlan> {
     await this.portfolioService.findOwnedOrThrow(userId, portfolioId);
-    const [targets, positions] = await Promise.all([
+    const [allTargets, positions, capital] = await Promise.all([
       this.prisma.targetAllocation.findMany({ where: { portfolioId } }),
       this.portfolioService.getPositions(userId, portfolioId),
+      this.portfolioService.getCapitalAssetIds(userId),
     ]);
+    // El capital (p.ej. USDT) no forma parte del portafolio ni de la
+    // estrategia, aunque haya quedado un objetivo guardado de antes.
+    const targets = allTargets.filter((t) => !capital.has(t.assetId));
     const assets = await this.marketService.getAssetsByIds(
       targets.map((t) => t.assetId),
     );
@@ -93,6 +97,12 @@ export class StrategyService {
   ): Promise<RebalancePlan> {
     await this.portfolioService.findOwnedOrThrow(userId, portfolioId);
     const rows = await this.resolveTargets(items);
+    const capital = await this.portfolioService.getCapitalAssetIds(userId);
+    if (rows.some((r) => capital.has(r.assetId))) {
+      throw new BadRequestException(
+        'Las monedas capital no forman parte de la estrategia. Quitálas de la asignación.',
+      );
+    }
     await this.prisma.$transaction([
       this.prisma.targetAllocation.deleteMany({ where: { portfolioId } }),
       this.prisma.targetAllocation.createMany({

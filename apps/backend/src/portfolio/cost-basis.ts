@@ -168,9 +168,9 @@ export interface PortfolioTotals {
   changePercent24h: number;
 }
 
-// Totales del portafolio. El valor total incluye todo; las monedas capital
-// se informan aparte (capitalValue) y quedan fuera de invertido, ganancias
-// y variación 24h. La variación 24h es el promedio de la variación de cada
+// Totales del portafolio. Las monedas capital (p.ej. USDT) no son parte
+// del portafolio: se informan solo aparte (capitalValue) y quedan fuera del
+// valor total, lo invertido, las ganancias y la variación 24h. La variación 24h es el promedio de la variación de cada
 // activo invertido, ponderado por su peso en el valor invertido.
 export function summarizePositions(
   positions: ValuedPosition[],
@@ -191,7 +191,7 @@ export function summarizePositions(
       : 0;
 
   return {
-    totalValue: sum(positions, (p) => p.currentValue),
+    totalValue: investedValue,
     capitalValue: sum(capital, (p) => p.currentValue),
     totalInvested: sum(invested, (p) => p.quantity * p.averageCost),
     realizedPnl: sum(invested, (p) => p.realizedPnl),

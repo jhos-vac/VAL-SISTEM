@@ -333,7 +333,11 @@ export class PortfolioService {
     userId: string,
     portfolioId: string,
   ): Promise<AssetPositionDto[]> {
-    const enriched = await this.getEnrichedPositions(userId, portfolioId);
+    // Las monedas capital no se listan como posiciones: solo aparecen como
+    // capital en el resumen (capitalValue).
+    const enriched = (
+      await this.getEnrichedPositions(userId, portfolioId)
+    ).filter((p) => !p.isCapital);
     // No se expone `changePercent24h` en el contrato público de posiciones
     // (solo se usa internamente para ponderar el summary) — se arma el
     // objeto explícito en vez de desestructurar para no dejar variables
@@ -373,7 +377,9 @@ export class PortfolioService {
     userId: string,
     portfolioId: string,
   ): Promise<AssetAllocationDto[]> {
-    const positions = await this.getEnrichedPositions(userId, portfolioId);
+    const positions = (
+      await this.getEnrichedPositions(userId, portfolioId)
+    ).filter((p) => !p.isCapital);
     const totalValue = positions.reduce((sum, p) => sum + p.currentValue, 0);
 
     // La misma moneda puede estar en varias wallets (Spot, Earn, otro

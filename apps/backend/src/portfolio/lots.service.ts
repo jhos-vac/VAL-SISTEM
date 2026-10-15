@@ -89,6 +89,8 @@ export class LotsService {
 
     const byAsset = new Map<string, AssetLotsDto>();
     for (const position of positions) {
+      // El capital no se muestra como inversión (solo en el resumen).
+      if (capital.has(position.assetId)) continue;
       const currentPrice =
         prices.get(position.assetId)?.price ?? position.avgPrice;
       let group = byAsset.get(position.assetId);

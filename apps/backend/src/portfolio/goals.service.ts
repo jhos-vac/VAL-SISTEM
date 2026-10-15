@@ -174,14 +174,10 @@ export class GoalsService {
           gain: sum((p) => p.unrealizedPnl + p.realizedPnl),
         };
       } else {
-        // Valor objetivo: cuenta todo el dinero del portafolio (también el
-        // capital). % de ganancia: solo lo invertido (sin capital).
+        // El valor del portafolio ya no incluye el capital.
         ctx = {
           now,
-          currentValue:
-            kind === 'target_value'
-              ? summary.totalValue
-              : summary.totalValue - summary.capitalValue,
+          currentValue: summary.totalValue,
           invested: summary.totalInvested,
           gain: summary.unrealizedPnl + summary.realizedPnl,
         };

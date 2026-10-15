@@ -66,8 +66,9 @@ export function CapitalAssetsCard() {
       <div className="flex max-w-xl flex-col gap-3">
         <p className="text-sm text-text-secondary">
           Marcá las monedas que usás como dinero, no como inversión (por ejemplo USDT, como
-          dólares virtuales). Siguen sumando al valor total, pero no cuentan en lo invertido,
-          en la ganancia ni en la variación 24h.
+          dólares virtuales). Se muestran solo como “Capital” en el dashboard y en la barra
+          superior: no aparecen en portafolios, posiciones, estrategia ni en el ranking, y no
+          cuentan en la ganancia.
         </p>
         {isLoading ? (
           <p className="text-sm text-text-secondary">Cargando…</p>

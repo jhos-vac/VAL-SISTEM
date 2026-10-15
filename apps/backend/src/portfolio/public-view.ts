@@ -23,7 +23,6 @@ export interface PublicStats {
   // (ganancia realizada + no realizada) / invertido, sin capital.
   returnPercent: number;
   changePercent24h: number;
-  capitalPercent: number;
   assetsCount: number;
   composition: CompositionItem[];
   hasInvestment: boolean;
@@ -31,11 +30,13 @@ export interface PublicStats {
 
 export function buildPublicStats(positions: PublicPosition[]): PublicStats {
   const totals = summarizePositions(positions);
+  // El capital (p.ej. USDT) no es parte del portafolio: no se publica.
+  const invested = positions.filter((p) => !p.isCapital);
   const byAsset = new Map<
     string,
     CompositionItem & { cost: number; pnl: number }
   >();
-  for (const p of positions) {
+  for (const p of invested) {
     const item = byAsset.get(p.assetId) ?? {
       assetId: p.assetId,
       assetSymbol: p.assetSymbol,
@@ -68,10 +69,6 @@ export function buildPublicStats(positions: PublicPosition[]): PublicStats {
           100
         : 0,
     changePercent24h: totals.changePercent24h,
-    capitalPercent:
-      totals.totalValue > 0
-        ? (totals.capitalValue / totals.totalValue) * 100
-        : 0,
     assetsCount: composition.length,
     composition,
     hasInvestment: totals.totalInvested > 0,

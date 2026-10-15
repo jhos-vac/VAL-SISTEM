@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAssets } from "@/lib/market-client";
+import { fetchCapitalAssets } from "@/lib/portfolio-client";
 
 export interface HeldAsset {
   symbol: string;
@@ -18,11 +19,13 @@ export function AssetPicker({
   exclude,
   onPick,
   disabled = false,
+  label = "Agregar activo",
 }: {
   held: HeldAsset[];
   exclude: string[];
   onPick: (symbol: string) => void;
   disabled?: boolean;
+  label?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -50,8 +53,17 @@ export function AssetPicker({
     };
   }, [open]);
 
+  // Las monedas capital (p.ej. USDT) no son inversiones: no se ofrecen.
+  const { data: capital } = useQuery({
+    queryKey: ["capital-assets"],
+    queryFn: fetchCapitalAssets,
+  });
+
   const q = query.trim().toLowerCase();
-  const excluded = useMemo(() => new Set(exclude), [exclude]);
+  const excluded = useMemo(
+    () => new Set([...exclude, ...(capital ?? [])]),
+    [exclude, capital],
+  );
   const names = useMemo(
     () => new Map((catalog ?? []).map((a) => [a.symbol, a.name])),
     [catalog],
@@ -82,7 +94,7 @@ export function AssetPicker({
         className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-primary/60 px-3 py-1.5 text-sm text-primary transition-colors hover:bg-primary-soft disabled:cursor-not-allowed disabled:opacity-50"
       >
         <span aria-hidden="true" className="text-base leading-none">+</span>
-        Agregar activo
+        {label}
       </button>
 
       {open ? (

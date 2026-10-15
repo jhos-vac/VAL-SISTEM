@@ -60,8 +60,8 @@ export default function DashboardPage() {
   }
 
   const s = summary;
-  // Con monedas capital (p.ej. USDT), el valor total incluye ese dinero
-  // pero invertido, ganancias y variación 24h no.
+  // Las monedas capital (p.ej. USDT) se muestran solo aparte: no son parte
+  // del portafolio, las ganancias ni la variación 24h.
   const hasCapital = s.capitalValue > 0;
 
   return (
@@ -75,34 +75,30 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile
-          label="Valor total"
+          label="Valor del portafolio"
           value={formatCurrency(s.totalValue)}
           accent="primary"
+          delta={<PnlValue value={s.changePercent24h} asPercent />}
+        />
+        <StatTile
+          label="Capital"
+          value={formatCurrency(s.capitalValue)}
           delta={
             hasCapital ? (
-              <Link href="/settings" className="hover:text-primary">
-                Capital: {formatCurrency(s.capitalValue)}
-              </Link>
+              "Disponible, fuera del portafolio"
             ) : (
-              <PnlValue value={s.changePercent24h} asPercent />
+              <Link href="/settings" className="hover:text-primary">
+                Elegí tus monedas capital
+              </Link>
             )
           }
         />
-        <StatTile
-          label="Invertido"
-          value={formatCurrency(s.totalInvested)}
-          delta={hasCapital ? "Sin moneda capital" : undefined}
-        />
+        <StatTile label="Invertido" value={formatCurrency(s.totalInvested)} />
         <StatTile
           label="Ganancia no realizada"
           value={<PnlValue value={s.unrealizedPnl} />}
           accent={s.unrealizedPnl >= 0 ? "gain" : "loss"}
           delta={`Realizada: ${formatCurrency(s.realizedPnl)}`}
-        />
-        <StatTile
-          label="Variación 24h"
-          value={<PnlValue value={s.changePercent24h} asPercent />}
-          accent={s.changePercent24h >= 0 ? "gain" : "loss"}
         />
       </div>
 

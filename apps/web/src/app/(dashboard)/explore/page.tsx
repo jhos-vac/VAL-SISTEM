@@ -120,9 +120,7 @@ function PublicDetail({ portfolio }: { portfolio: PublicPortfolio }) {
     <Card title={portfolio.alias}>
       <p className="text-sm text-text-secondary">
         Publicado el {new Date(portfolio.publishedAt).toLocaleDateString("es-EC")} ·{" "}
-        {portfolio.capitalPercent > 0
-          ? `${portfolio.capitalPercent.toFixed(1)} % en capital (efectivo)`
-          : "sin capital"}
+        {portfolio.assetsCount} activo(s)
       </p>
 
       <div
@@ -158,7 +156,6 @@ function PublicDetail({ portfolio }: { portfolio: PublicPortfolio }) {
                   aria-hidden="true"
                 />
                 {c.assetSymbol}
-                {c.isCapital ? <span className="ml-1 text-xs text-text-secondary">(capital)</span> : null}
               </td>
               <td className="py-1.5 text-right tabular-nums">{c.percent.toFixed(1)} %</td>
               <td className="py-1.5 text-right">

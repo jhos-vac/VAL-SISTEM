@@ -122,7 +122,6 @@ export interface PublicPortfolio {
   copies: number;
   returnPercent: number;
   changePercent24h: number;
-  capitalPercent: number;
   assetsCount: number;
   composition: CompositionItem[];
   hasInvestment: boolean;

@@ -103,7 +103,10 @@ export class PortfolioSnapshotService {
       await tx.portfolioSnapshotItems.deleteMany({
         where: { snapshotId: snapshot.id },
       });
-      const items = snapshotItemsByAsset(positions, totalValue);
+      const items = snapshotItemsByAsset(
+        positions.filter((p) => !p.isCapital),
+        totalValue,
+      );
       if (items.length > 0) {
         await tx.portfolioSnapshotItems.createMany({
           data: items.map((item) => ({ snapshotId: snapshot.id, ...item })),

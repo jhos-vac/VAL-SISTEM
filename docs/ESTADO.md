@@ -158,6 +158,20 @@ backend juntos (`scripts/dev-reset.js`).
     navegador.
   - **Pendiente:** estas pantallas en la app móvil.
 
+- **15 oct. Capital aparte, metas y DCA interactivos, orden de posiciones.**
+  - Las monedas capital (p.ej. USDT) **ya no forman parte del portafolio**:
+    se muestran solo como "Capital" en el dashboard y en la barra superior.
+  - `totalValue` del resumen excluye el capital, y queda fuera de:
+    - posiciones, composición, compras (lotes) y snapshots;
+    - estrategia (el backend rechaza un objetivo en una moneda capital);
+    - ranking público.
+  - Metas: anillos de progreso, avance contra tiempo y formulario con
+    atajos y vista previa.
+  - DCA: estado (al día, atrasado o adelantado), barras de planeado contra
+    comprado y formulario con proyección.
+  - Posiciones: orden por alfabético, ganancia ($ o %) o valor. Se
+    recuerda la elección.
+
 ## Cómo se calcula el costo y la ganancia
 
 Método: **costo promedio ponderado**.

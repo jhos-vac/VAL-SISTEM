@@ -32,7 +32,9 @@ describe('buildPublicStats', () => {
       }),
     ]);
     expect(stats.returnPercent).toBeCloseTo(50);
-    expect(stats.capitalPercent).toBeCloseTo(25); // 50 de 200
+    // El capital no aparece en la composición publicada.
+    expect(stats.composition.map((c) => c.assetSymbol)).toEqual(['BTC']);
+    expect(stats.composition[0].percent).toBeCloseTo(100);
     expect(stats.hasInvestment).toBe(true);
   });
 
@@ -54,11 +56,11 @@ describe('buildPublicStats', () => {
     expect(keys).not.toContain('cost');
   });
 
-  it('el capital no tiene rendimiento propio', () => {
+  it('un portafolio solo con capital no tiene nada para publicar', () => {
     const stats = buildPublicStats([
       pos('usdt', { isCapital: true, unrealizedPnl: 1 }),
     ]);
-    expect(stats.composition[0].returnPercent).toBeNull();
+    expect(stats.composition).toEqual([]);
     expect(stats.hasInvestment).toBe(false);
   });
 });

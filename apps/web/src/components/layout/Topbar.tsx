@@ -71,6 +71,17 @@ export function Topbar() {
             >
               {isUp ? "▲" : "▼"} {formatPercent(summary.changePercent24h)}
             </span>
+            {summary.capitalValue > 0 ? (
+              <span
+                className="ml-2 inline-flex items-baseline gap-1.5 rounded-full border border-border-hairline px-2.5 py-0.5"
+                title="Monedas capital (p.ej. USDT): dinero disponible, fuera del portafolio"
+              >
+                <span className="text-xs text-text-muted">Capital</span>
+                <span className="font-[family-name:var(--font-mono)] text-sm font-medium tabular-nums">
+                  {formatCurrency(summary.capitalValue)}
+                </span>
+              </span>
+            ) : null}
           </div>
         ) : null}
       </div>

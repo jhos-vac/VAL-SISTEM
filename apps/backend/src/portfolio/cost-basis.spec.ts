@@ -262,7 +262,7 @@ describe('summarizePositions', () => {
     expect(totals.changePercent24h).toBeCloseTo(7);
   });
 
-  it('las monedas capital suman al valor total pero no a ganancias', () => {
+  it('las monedas capital quedan fuera del portafolio y se informan aparte', () => {
     const btc = {
       quantity: 1,
       averageCost: 100,
@@ -281,7 +281,7 @@ describe('summarizePositions', () => {
       isCapital: true,
     };
     const totals = summarizePositions([btc, usdt]);
-    expect(totals.totalValue).toBeCloseTo(650.5);
+    expect(totals.totalValue).toBeCloseTo(150);
     expect(totals.capitalValue).toBeCloseTo(500.5);
     expect(totals.totalInvested).toBe(100);
     expect(totals.realizedPnl).toBe(10);
@@ -303,7 +303,7 @@ describe('summarizePositions', () => {
       },
     ]);
     expect(totals).toMatchObject({
-      totalValue: 100,
+      totalValue: 0,
       capitalValue: 100,
       totalInvested: 0,
       unrealizedPnl: 0,
