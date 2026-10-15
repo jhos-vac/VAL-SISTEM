@@ -9,7 +9,6 @@ import {
   formatCurrency,
   type DcaFrequency,
   type DcaPlan,
-  type RebalancePlan,
 } from "@val-sistem/shared";
 import {
   createDcaPlan,
@@ -20,6 +19,9 @@ import {
   updateDcaPlan,
 } from "@/lib/strategy-client";
 import { useDefaultPortfolio } from "@/hooks/useDefaultPortfolio";
+import { TargetAllocationEditor } from "@/components/strategy/TargetAllocationEditor";
+import { AllocationView } from "@/components/strategy/AllocationView";
+import type { DraftRow } from "@/components/strategy/allocation-math";
 
 const inputClass = "rounded-md border border-border-hairline bg-background px-3 py-2";
 
@@ -56,188 +58,73 @@ export default function StrategyPage() {
 
 // --- Asignación objetivo ---
 
-interface Row {
-  assetSymbol: string;
-  targetPercent: string;
-}
-
 function TargetAllocationCard({ portfolioId, currency }: { portfolioId: string; currency: string }) {
   const queryClient = useQueryClient();
-  const [editing, setEditing] = useState<Row[] | null>(null);
+  const [editing, setEditing] = useState(false);
   const { data: plan } = useQuery({
     queryKey: ["target-allocation", portfolioId],
     queryFn: () => fetchTargetAllocation(portfolioId),
   });
 
   const save = useMutation({
-    mutationFn: (rows: Row[]) =>
+    mutationFn: (rows: DraftRow[]) =>
       saveTargetAllocation(
         portfolioId,
-        rows
-          .filter((r) => r.assetSymbol.trim() && Number(r.targetPercent) > 0)
-          .map((r) => ({
-            assetSymbol: r.assetSymbol.trim().toUpperCase(),
-            targetPercent: Number(r.targetPercent.replace(",", ".")),
-          })),
+        rows.map((r) => ({ assetSymbol: r.assetSymbol, targetPercent: r.percent })),
       ),
     onSuccess: (updated) => {
       queryClient.setQueryData(["target-allocation", portfolioId], updated);
-      setEditing(null);
+      setEditing(false);
     },
   });
 
-  function startEditing(current: RebalancePlan | undefined) {
-    const rows = (current?.rows ?? [])
-      .filter((r) => r.targetPercent !== null && r.targetPercent > 0)
-      .map((r) => ({ assetSymbol: r.assetSymbol, targetPercent: String(r.targetPercent) }));
-    setEditing(rows.length > 0 ? rows : [{ assetSymbol: "", targetPercent: "" }]);
-  }
-
-  const editingSum = (editing ?? []).reduce(
-    (s, r) => s + (Number(r.targetPercent.replace(",", ".")) || 0),
-    0,
-  );
   const hasTargets = (plan?.targetsSum ?? 0) > 0;
 
   return (
     <Card
       title="Asignación objetivo"
       action={
-        editing ? null : (
-          <button onClick={() => startEditing(plan)} className="text-sm text-primary">
-            {hasTargets ? "Editar" : "Definir"}
+        editing || !plan ? null : (
+          <button
+            onClick={() => {
+              save.reset();
+              setEditing(true);
+            }}
+            className="rounded-md px-2 py-1 text-sm text-primary transition-colors hover:bg-primary-soft"
+          >
+            {hasTargets ? "Editar estrategia" : "Definir estrategia"}
           </button>
         )
       }
     >
-      {editing ? (
-        <form
-          className="flex max-w-lg flex-col gap-2 text-sm"
-          onSubmit={(e) => {
-            e.preventDefault();
-            save.mutate(editing);
-          }}
-        >
-          {editing.map((row, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input
-                aria-label="Activo"
-                value={row.assetSymbol}
-                onChange={(e) =>
-                  setEditing(editing.map((r, j) => (j === i ? { ...r, assetSymbol: e.target.value } : r)))
-                }
-                placeholder="BTC"
-                className={`${inputClass} w-28 uppercase`}
-              />
-              <input
-                aria-label="Porcentaje objetivo"
-                value={row.targetPercent}
-                onChange={(e) =>
-                  setEditing(editing.map((r, j) => (j === i ? { ...r, targetPercent: e.target.value } : r)))
-                }
-                inputMode="decimal"
-                placeholder="50"
-                className={`${inputClass} w-24 text-right`}
-              />
-              <span>%</span>
-              <button
-                type="button"
-                onClick={() => setEditing(editing.filter((_, j) => j !== i))}
-                className="text-text-secondary hover:text-status-critical"
-                aria-label={`Quitar ${row.assetSymbol || "fila"}`}
-              >
-                Quitar
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => setEditing([...editing, { assetSymbol: "", targetPercent: "" }])}
-            className="self-start text-primary"
-          >
-            + Agregar activo
-          </button>
-          <p className={editingSum > 100 ? "text-status-critical" : "text-text-secondary"}>
-            Total: {editingSum.toFixed(2)} %
-            {editingSum < 100 ? " — el resto queda libre (no se sugiere nada para lo no asignado)" : ""}
-          </p>
-          {save.isError ? <p className="text-status-critical">{save.error.message}</p> : null}
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              disabled={editingSum > 100 || save.isPending}
-              className="rounded-md bg-primary px-3 py-1.5 font-medium text-white disabled:opacity-50"
-            >
-              Guardar
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditing(null)}
-              className="rounded-md border border-border-hairline px-3 py-1.5"
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
-      ) : !plan ? (
+      {!plan ? (
         <p className="text-sm text-text-secondary">Cargando…</p>
+      ) : editing ? (
+        <TargetAllocationEditor
+          plan={plan}
+          currency={currency}
+          saving={save.isPending}
+          error={save.isError ? save.error.message : null}
+          onSave={(rows) => save.mutate(rows)}
+          onCancel={() => setEditing(false)}
+        />
       ) : !hasTargets ? (
-        <p className="text-sm text-text-secondary">
-          Definí qué % del portafolio querés en cada activo (por ejemplo 50 % BTC, 30 % ETH, 20 %
-          USDT) y te mostramos qué comprar o vender para llegar.
-        </p>
+        <div className="flex flex-col items-start gap-3">
+          <p className="text-sm text-text-secondary">
+            Definí qué % del portafolio querés en cada activo (por ejemplo 50 % BTC, 30 % ETH, 20 %
+            USDT) y te mostramos qué comprar o vender para llegar.
+          </p>
+          <button
+            onClick={() => setEditing(true)}
+            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white"
+          >
+            Armar mi estrategia
+          </button>
+        </div>
       ) : (
-        <RebalanceTable plan={plan} currency={currency} />
+        <AllocationView plan={plan} currency={currency} />
       )}
     </Card>
-  );
-}
-
-function RebalanceTable({ plan, currency }: { plan: RebalancePlan; currency: string }) {
-  const money = (n: number) => formatCurrency(Math.abs(n), currency);
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[620px] text-sm">
-        <thead>
-          <tr className="text-left text-text-secondary">
-            <th className="py-2 font-normal">Activo</th>
-            <th className="py-2 text-right font-normal">Actual</th>
-            <th className="py-2 text-right font-normal">Objetivo</th>
-            <th className="py-2 text-right font-normal">Diferencia</th>
-            <th className="py-2 text-right font-normal">Para rebalancear</th>
-          </tr>
-        </thead>
-        <tbody>
-          {plan.rows.map((r) => (
-            <tr key={r.assetId} className="border-t border-border-hairline">
-              <td className="py-2 font-medium">{r.assetSymbol}</td>
-              <td className="py-2 text-right tabular-nums">{r.currentPercent.toFixed(1)} %</td>
-              <td className="py-2 text-right tabular-nums">
-                {r.targetPercent === null ? "—" : `${r.targetPercent.toFixed(1)} %`}
-              </td>
-              <td className="py-2 text-right tabular-nums">
-                {r.diffPercent === null
-                  ? "—"
-                  : `${r.diffPercent > 0 ? "+" : ""}${r.diffPercent.toFixed(1)} pts`}
-              </td>
-              <td className="py-2 text-right tabular-nums">
-                {r.suggestedTrade === null || Math.abs(r.suggestedTrade) < 1 ? (
-                  <span className="text-text-secondary">—</span>
-                ) : r.suggestedTrade > 0 ? (
-                  <span className="text-pnl-up">Comprar {money(r.suggestedTrade)}</span>
-                ) : (
-                  <span className="text-pnl-down">Vender {money(r.suggestedTrade)}</span>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="mt-2 text-xs text-text-muted">
-        Sobre un valor total de {formatCurrency(plan.totalValue, currency)}. Asignado:{" "}
-        {plan.targetsSum.toFixed(2)} %.
-      </p>
-    </div>
   );
 }
 
