@@ -15,7 +15,7 @@ import {
   setPercent,
   totalOf,
   type DraftRow,
-} from "./allocation-math";
+} from "@val-sistem/shared";
 
 // Color estable por activo dentro del editor (mismo color en la barra, el
 // punto de la fila y la vista de comparación).

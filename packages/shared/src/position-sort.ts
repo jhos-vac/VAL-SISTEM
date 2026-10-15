@@ -1,5 +1,5 @@
 // Orden de la tabla de posiciones.
-import type { AssetPosition } from "@val-sistem/shared";
+import type { AssetPosition } from "./types";
 
 export type SortKey = "alpha" | "pnl" | "pnlPercent" | "value";
 export type SortDir = "asc" | "desc";

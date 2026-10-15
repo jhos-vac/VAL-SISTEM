@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { formatCurrency, type RebalancePlan } from "@val-sistem/shared";
 import { colorFor, TradeHint } from "./TargetAllocationEditor";
-import { colorOrder } from "./allocation-math";
+import { colorOrder } from "@val-sistem/shared";
 
 // Vista de la estrategia guardada: por activo, una barra con el % actual y
 // una marca en el % objetivo, con la diferencia y qué hacer. Las barras se

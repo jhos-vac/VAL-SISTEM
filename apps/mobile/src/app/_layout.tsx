@@ -66,6 +66,15 @@ export default function RootLayout() {
           <Stack.Screen name="portfolios" options={{ title: 'Portafolios', presentation: 'modal' }} />
           <Stack.Screen name="exchange" options={{ title: 'Binance' }} />
           <Stack.Screen name="delete-account" options={{ title: 'Eliminar cuenta' }} />
+          <Stack.Screen name="market" options={{ title: 'Mercado' }} />
+          <Stack.Screen name="lots" options={{ title: 'Rendimiento por compra' }} />
+          <Stack.Screen name="goals" options={{ title: 'Metas' }} />
+          <Stack.Screen name="goal-new" options={{ title: 'Nueva meta', presentation: 'modal' }} />
+          <Stack.Screen name="strategy" options={{ title: 'Estrategia' }} />
+          <Stack.Screen name="dca" options={{ title: 'Compras periódicas' }} />
+          <Stack.Screen name="dca-new" options={{ title: 'Nuevo plan', presentation: 'modal' }} />
+          <Stack.Screen name="explore" options={{ title: 'Explorar' }} />
+          <Stack.Screen name="explore-detail" options={{ title: 'Portafolio público' }} />
         </Stack.Protected>
       </Stack>
     </PersistQueryClientProvider>

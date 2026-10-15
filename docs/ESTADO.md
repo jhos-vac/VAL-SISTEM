@@ -76,7 +76,13 @@ backend juntos (`scripts/dev-reset.js`).
     - Login, registro y recuperación.
     - Desbloqueo con huella o Face ID.
     - Registro del push token en `/devices`.
-    - Tabs: Inicio, Posiciones, Movimientos, Mercado y Ajustes.
+    - Tabs: Inicio, Posiciones, Movimientos, Plan y Ajustes.
+    - Plan: Metas (con alta y vista previa), Estrategia (editor +/- que no
+      pasa del 100 %), Compras periódicas (DCA), Rendimiento por compra,
+      Explorar (ranking y copia de portafolios públicos) y Mercado.
+    - Posiciones ordenables (alfabético, ganancia, %, valor); tocar una abre
+      sus compras. La lógica de orden y asignación vive en
+      `@val-sistem/shared` y la comparten web y móvil.
     - Alta manual de transacciones, selector de portafolio (con "General")
       y conexión de Binance.
     - Modo offline con caché persistida y aviso de antigüedad de los datos.

@@ -31,7 +31,7 @@ export default function TabsLayout() {
         name="transactions"
         options={{ title: 'Movimientos', tabBarIcon: icon('swap-horizontal-outline') }}
       />
-      <Tabs.Screen name="market" options={{ title: 'Mercado', tabBarIcon: icon('trending-up-outline') }} />
+      <Tabs.Screen name="plan" options={{ title: 'Plan', tabBarIcon: icon('compass-outline') }} />
       <Tabs.Screen name="settings" options={{ title: 'Ajustes', tabBarIcon: icon('settings-outline') }} />
     </Tabs>
   );

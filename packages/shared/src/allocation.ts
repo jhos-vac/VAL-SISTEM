@@ -1,6 +1,6 @@
 // Cálculos del editor de asignación objetivo, sin React: recortes al 100 %,
 // repartos rápidos y sugerencias de compra/venta en vivo mientras se edita.
-import type { RebalancePlan } from "@val-sistem/shared";
+import type { RebalancePlan } from "./strategy";
 
 export interface DraftRow {
   assetSymbol: string;

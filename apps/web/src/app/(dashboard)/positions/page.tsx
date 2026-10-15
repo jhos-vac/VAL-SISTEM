@@ -15,7 +15,7 @@ import {
   sortPositions,
   type SortDir,
   type SortKey,
-} from "@/lib/position-sort";
+} from "@val-sistem/shared";
 
 const SORT_STORAGE_KEY = "val.positions.sort";
 

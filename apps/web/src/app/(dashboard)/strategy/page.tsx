@@ -7,7 +7,7 @@ import { fetchTargetAllocation, saveTargetAllocation } from "@/lib/strategy-clie
 import { useDefaultPortfolio } from "@/hooks/useDefaultPortfolio";
 import { TargetAllocationEditor } from "@/components/strategy/TargetAllocationEditor";
 import { AllocationView } from "@/components/strategy/AllocationView";
-import type { DraftRow } from "@/components/strategy/allocation-math";
+import type { DraftRow } from "@val-sistem/shared";
 import { DcaSection } from "@/components/strategy/DcaSection";
 
 // Estrategia del portafolio: % objetivo por activo (con qué comprar o
