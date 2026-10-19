@@ -1,44 +1,102 @@
-// Misma paleta "CryptoVault" que la web (apps/web/src/app/globals.css):
-// azul de marca, verde/rojo para ganancia/pérdida, dark-first.
+// Paleta verde de la app móvil (#051F20 → #DAF1DE). Modo claro: fondo menta
+// con tarjetas blancas y tarjetas "destacadas" verde noche; modo oscuro: lo
+// inverso. Ganancia y pérdida conservan verde/rojo con contraste suficiente.
+import { createContext, useContext } from 'react';
 import { useColorScheme } from 'react-native';
 
-const dark = {
-  background: '#0B0E11',
-  surface: '#12161D',
-  surfaceRaised: '#171C26',
-  foreground: '#F5F7FA',
-  textSecondary: '#94A3B8',
-  textMuted: '#64748B',
-  border: 'rgba(255, 255, 255, 0.08)',
-  primary: '#3B82F6',
-  primarySoft: 'rgba(59, 130, 246, 0.12)',
-  pnlUp: '#0ECB81',
-  pnlDown: '#F6465D',
-  warning: '#F5A623',
-  onPrimary: '#FFFFFF',
-};
+export const GREEN = {
+  night: '#051F20',
+  forest: '#0B2B26',
+  pine: '#163832',
+  moss: '#235347',
+  sage: '#8EB69B',
+  mint: '#DAF1DE',
+} as const;
 
-export type Palette = typeof dark;
+type PaletteKey =
+  | 'background'
+  | 'surface'
+  | 'surfaceRaised'
+  | 'foreground'
+  | 'textSecondary'
+  | 'textMuted'
+  | 'border'
+  | 'primary'
+  | 'primarySoft'
+  | 'onPrimary'
+  | 'accent'
+  | 'emphasis'
+  | 'tabBar'
+  | 'pnlUp'
+  | 'pnlDown'
+  | 'warning';
 
-const light: Palette = {
-  background: '#F7F8FA',
+const light: Record<PaletteKey, string> = {
+  background: '#EEF6EF',
   surface: '#FFFFFF',
-  surfaceRaised: '#F1F3F6',
-  foreground: '#0B0E11',
-  textSecondary: '#52596B',
-  textMuted: '#8A93A6',
-  border: 'rgba(11, 14, 17, 0.1)',
-  primary: '#3B82F6',
-  primarySoft: 'rgba(59, 130, 246, 0.1)',
-  pnlUp: '#0A9D67',
-  pnlDown: '#D92C47',
-  warning: '#B7791F',
+  surfaceRaised: GREEN.mint,
+  foreground: GREEN.night,
+  textSecondary: '#3D5A52',
+  textMuted: '#6A857B',
+  border: 'rgba(5, 31, 32, 0.08)',
+  primary: GREEN.moss,
+  primarySoft: 'rgba(35, 83, 71, 0.12)',
   onPrimary: '#FFFFFF',
+  accent: GREEN.sage,
+  // Fondo de una tarjeta destacada cuando esta paleta es la invertida.
+  emphasis: GREEN.mint,
+  tabBar: GREEN.night,
+  pnlUp: '#17784F',
+  pnlDown: '#C2333F',
+  warning: '#A86A12',
 };
+
+export type Palette = typeof light;
+
+const dark: Palette = {
+  background: GREEN.night,
+  surface: GREEN.forest,
+  surfaceRaised: GREEN.pine,
+  foreground: GREEN.mint,
+  textSecondary: '#A9C8B4',
+  textMuted: '#7A9C8B',
+  border: 'rgba(218, 241, 222, 0.08)',
+  primary: GREEN.sage,
+  primarySoft: 'rgba(142, 182, 155, 0.16)',
+  onPrimary: GREEN.night,
+  accent: GREEN.sage,
+  emphasis: GREEN.forest,
+  tabBar: GREEN.forest,
+  pnlUp: '#7EE0A1',
+  pnlDown: '#FF8F8F',
+  warning: '#F2C46D',
+};
+
+// Dentro de una tarjeta destacada (Card variant="inverse") todo usa la
+// paleta opuesta: texto claro sobre verde noche en modo claro, y al revés.
+export const InvertContext = createContext(false);
+
+export function usePalettes(): { base: Palette; inverse: Palette } {
+  const isLight = useColorScheme() !== 'dark';
+  return isLight ? { base: light, inverse: dark } : { base: dark, inverse: light };
+}
 
 export function useTheme(): Palette {
-  return useColorScheme() === 'light' ? light : dark;
+  const inverted = useContext(InvertContext);
+  const { base, inverse } = usePalettes();
+  return inverted ? inverse : base;
 }
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;
-export const radius = { sm: 8, md: 12, lg: 16 } as const;
+export const radius = { sm: 10, md: 16, lg: 24, pill: 999 } as const;
+
+// Paleta categórica para gráficos: arranca en verdes y sigue con tonos que
+// se distinguen entre sí (no solo verdes, para que se lean las series).
+export const SERIES = ['#2F7A63', '#8EB69B', '#E0B15C', '#6C8EBF', '#C97B63', '#4FA3A5', '#9A7FC2', '#B8C46A'];
+
+// Texto legible sobre un color de la serie (oscuro sobre tonos claros).
+export function onColor(hex: string): string {
+  const n = parseInt(hex.slice(1), 16);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6 ? GREEN.night : '#FFFFFF';
+}

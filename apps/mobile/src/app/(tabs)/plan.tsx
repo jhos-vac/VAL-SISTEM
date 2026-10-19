@@ -36,13 +36,12 @@ export default function PlanScreen() {
               gap: spacing.md,
               padding: spacing.lg,
               borderRadius: radius.lg,
-              borderWidth: 1,
-              borderColor: t.border,
               backgroundColor: pressed ? t.surfaceRaised : t.surface,
+              transform: [{ scale: pressed ? 0.98 : 1 }],
             })}
           >
-            <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: t.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name={item.icon} size={22} color={t.primary} />
+            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.surfaceRaised, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name={item.icon} size={22} color={t.foreground} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: t.foreground, fontSize: 16, fontWeight: '600' }}>{item.title}</Text>

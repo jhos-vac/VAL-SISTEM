@@ -17,7 +17,7 @@
     "android": {
       "package": "dev.valsistem.app",
       "adaptiveIcon": {
-        "backgroundColor": "#0B0E11",
+        "backgroundColor": "#051F20",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -35,9 +35,9 @@
         {
           "image": "./assets/splash-icon.png",
           "imageWidth": 160,
-          "backgroundColor": "#F7F8FA",
+          "backgroundColor": "#EEF6EF",
           "dark": {
-            "backgroundColor": "#0B0E11"
+            "backgroundColor": "#051F20"
           }
         }
       ],
@@ -50,7 +50,7 @@
       [
         "expo-notifications",
         {
-          "color": "#3B82F6"
+          "color": "#235347"
         }
       ]
     ],

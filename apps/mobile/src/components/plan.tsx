@@ -4,11 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { Animated, Pressable, Text, TextInput, View } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAssets, fetchCapitalAssets } from '@/lib/plan-clients';
-import { radius, spacing, useTheme } from '@/lib/theme';
+import { radius, SERIES, spacing, useTheme } from '@/lib/theme';
 import { Chip, Muted } from './ui';
 
-// Misma paleta categórica que la web (chart-colors.ts).
-export const SERIES = ['#3B82F6', '#F5A623', '#0ECB81', '#A78BFA', '#F472B6', '#22D3EE', '#FB923C', '#F6465D'];
+export { SERIES } from '@/lib/theme';
 
 export function colorAt(symbol: string, order: string[]): string {
   const i = order.indexOf(symbol);
