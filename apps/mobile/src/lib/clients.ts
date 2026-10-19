@@ -19,6 +19,26 @@ import { requestWithAuth } from './session';
 
 export const fetchPortfolios = () => requestWithAuth<Portfolio[]>('/portfolios');
 
+export interface PortfolioInput {
+  name: string;
+  baseCurrency: string;
+  isDefault?: boolean;
+}
+
+export const createPortfolio = (input: PortfolioInput) =>
+  requestWithAuth<Portfolio>('/portfolios', { method: 'POST', body: JSON.stringify(input) });
+
+export const updatePortfolio = (id: string, input: Partial<PortfolioInput>) =>
+  requestWithAuth<Portfolio>(`/portfolios/${id}`, { method: 'PATCH', body: JSON.stringify(input) });
+
+// Publicación en el ranking de Explorar: solo % de rendimiento y
+// composición, con un alias; nunca montos ni datos del usuario.
+export const setPublication = (id: string, input: { isPublic: boolean; alias?: string }) =>
+  requestWithAuth<Portfolio>(`/portfolios/${id}/publication`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+
 export const fetchSummary = (portfolioId: string) =>
   requestWithAuth<PortfolioSummary>(`/portfolios/${portfolioId}/summary`);
 
@@ -35,6 +55,7 @@ export interface TransactionFilters {
   portfolioId: string;
   type?: TransactionType;
   assetSymbol?: string;
+  from?: string;
   // Las monedas capital (USDT…) se ocultan salvo que se pidan.
   includeCapital?: boolean;
 }
@@ -43,6 +64,7 @@ export function fetchTransactions(filters: TransactionFilters) {
   const params = new URLSearchParams({ portfolioId: filters.portfolioId });
   if (filters.type) params.set('type', filters.type);
   if (filters.assetSymbol) params.set('assetSymbol', filters.assetSymbol);
+  if (filters.from) params.set('from', filters.from);
   if (filters.includeCapital) params.set('includeCapital', 'true');
   return requestWithAuth<Transaction[]>(`/transactions?${params.toString()}`);
 }
@@ -120,6 +142,9 @@ export interface SyncResult {
   message: string;
 }
 
+export const disconnectExchangeAccount = (id: string) =>
+  requestWithAuth(`/exchange-accounts/${id}`, { method: 'DELETE' });
+
 export const syncExchangeAccount = (id: string) =>
   requestWithAuth<SyncResult>(`/exchange-accounts/${id}/sync`, { method: 'POST' });
 
@@ -127,11 +152,27 @@ export const syncExchangeAccount = (id: string) =>
 
 export const fetchProfile = () => requestWithAuth<User>('/auth/me');
 
+export type ThemePreference = 'system' | 'light' | 'dark';
+
 export interface UserSettings {
+  language: string;
   currency: string;
+  timezone: string;
+  theme: ThemePreference;
   notificationsEnabled: boolean;
   biometricEnabled: boolean;
 }
+
+export interface SettingsCatalogs {
+  languages: { code: string; name: string; nativeName: string }[];
+  currencies: { code: string; symbol: string; name: string }[];
+  timezones: { name: string; utcOffset: string }[];
+}
+
+export const fetchSettingsCatalogs = () => requestWithAuth<SettingsCatalogs>('/users/settings/catalogs');
+
+export const updateProfile = (input: { firstName?: string; lastName?: string; username?: string }) =>
+  requestWithAuth<User>('/users/me', { method: 'PATCH', body: JSON.stringify(input) });
 
 export const fetchSettings = () => requestWithAuth<UserSettings>('/users/me/settings');
 

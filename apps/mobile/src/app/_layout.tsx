@@ -77,6 +77,10 @@ export default function RootLayout() {
           <Stack.Screen name="dca-new" options={{ title: 'Nuevo plan', presentation: 'modal' }} />
           <Stack.Screen name="explore" options={{ title: 'Explorar' }} />
           <Stack.Screen name="explore-detail" options={{ title: 'Portafolio público' }} />
+          <Stack.Screen name="portfolio-edit" options={{ title: 'Portafolio', presentation: 'modal' }} />
+          <Stack.Screen name="profile" options={{ title: 'Perfil' }} />
+          <Stack.Screen name="preferences" options={{ title: 'Preferencias' }} />
+          <Stack.Screen name="capital" options={{ title: 'Moneda capital' }} />
         </Stack.Protected>
       </Stack>
     </PersistQueryClientProvider>

@@ -9,6 +9,7 @@ import {
   Avatar,
   BigAmount,
   Body,
+  Button,
   Card,
   ChangePill,
   Chip,
@@ -120,7 +121,8 @@ export default function DashboardScreen() {
       {isLoading ? <Loading /> : null}
       {hasNone ? (
         <Card>
-          <Muted>Todavía no tenés portafolios. Creá el primero desde la web.</Muted>
+          <Muted>Todavía no tienes portafolios. Crea el primero para empezar a registrar tus compras.</Muted>
+          <Button title="Crear portafolio" icon="add" onPress={() => router.push('/portfolio-edit')} />
         </Card>
       ) : null}
       {summary.error && !summary.data ? <ErrorText>{summary.error.message}</ErrorText> : null}

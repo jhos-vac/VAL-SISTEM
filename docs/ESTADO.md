@@ -82,6 +82,13 @@ backend juntos (`scripts/dev-reset.js`).
       Explorar (ranking y copia de portafolios públicos) y Mercado.
     - Historial: las monedas capital (USDT…) se ocultan; un interruptor
       "Mostrar capital" las trae (`GET /transactions?includeCapital=true`).
+    - Ajustes: perfil, preferencias (tema, moneda, idioma y zona horaria,
+      compartidas con la web), moneda capital, portafolios (crear, editar,
+      predeterminado y publicar en el ranking) y desconectar Binance.
+    - Historial con filtros por tipo, activo y período.
+    - Diseño: tarjetas redondeadas, barra de pestañas flotante y paletas
+      de prueba (Verde, Grafito, Café, Pizarra) en Ajustes, pendiente de
+      elegir la definitiva.
     - Posiciones ordenables (alfabético, ganancia, %, valor); tocar una abre
       sus compras. La lógica de orden y asignación vive en
       `@val-sistem/shared` y la comparten web y móvil.

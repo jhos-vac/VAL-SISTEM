@@ -1,10 +1,10 @@
 import type { ComponentProps } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, type Href } from 'expo-router';
-import { Muted, Screen } from '@/components/ui';
+import { MenuItem, Screen } from '@/components/ui';
 import { PortfolioHeader } from '@/components/PortfolioHeader';
-import { radius, spacing, useTheme } from '@/lib/theme';
+import { spacing } from '@/lib/theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -20,35 +20,18 @@ const ITEMS: { href: Href; icon: IconName; title: string; description: string }[
 // Pestaña de planificación: acceso a metas, estrategia, DCA, compras,
 // ranking público y mercado.
 export default function PlanScreen() {
-  const t = useTheme();
   return (
     <Screen>
       <PortfolioHeader />
-      <View style={{ gap: spacing.md }}>
+      <View style={{ gap: spacing.sm }}>
         {ITEMS.map((item) => (
-          <Pressable
+          <MenuItem
             key={item.title}
-            accessibilityRole="button"
+            icon={item.icon}
+            title={item.title}
+            description={item.description}
             onPress={() => router.push(item.href)}
-            style={({ pressed }) => ({
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: spacing.md,
-              padding: spacing.lg,
-              borderRadius: radius.lg,
-              backgroundColor: pressed ? t.surfaceRaised : t.surface,
-              transform: [{ scale: pressed ? 0.98 : 1 }],
-            })}
-          >
-            <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: t.surfaceRaised, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name={item.icon} size={22} color={t.foreground} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: t.foreground, fontSize: 16, fontWeight: '600' }}>{item.title}</Text>
-              <Muted style={{ fontSize: 13 }}>{item.description}</Muted>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={t.textMuted} />
-          </Pressable>
+          />
         ))}
       </View>
     </Screen>

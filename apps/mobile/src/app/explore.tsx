@@ -18,7 +18,7 @@ export default function ExploreScreen() {
       {ranking.error && !ranking.data ? <ErrorText>{ranking.error.message}</ErrorText> : null}
       {ranking.data?.length === 0 ? (
         <Card>
-          <Muted>Todavía no hay portafolios públicos. Podés publicar uno tuyo desde la web.</Muted>
+          <Muted>Todavía no hay portafolios públicos. Publica uno tuyo desde Ajustes → Portafolios.</Muted>
         </Card>
       ) : null}
       {ranking.data?.map((p, i) => (

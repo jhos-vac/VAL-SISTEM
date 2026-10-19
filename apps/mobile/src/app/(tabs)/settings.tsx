@@ -1,19 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Alert, Switch } from 'react-native';
+import { Alert, Switch, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
-import { Body, Button, Card, Muted, Row, Screen } from '@/components/ui';
+import { Avatar, Body, Button, Card, MenuItem, Muted, Row, Screen } from '@/components/ui';
 import { PalettePicker } from '@/components/PalettePicker';
 import { authenticateWithBiometrics, isBiometricAvailable } from '@/lib/biometrics';
-import { fetchProfile, updateSettings } from '@/lib/clients';
+import { updateSettings } from '@/lib/clients';
 import { APP_VERSION } from '@/lib/config';
 import { secure } from '@/lib/secure';
 import { logout } from '@/lib/session';
-import { useTheme } from '@/lib/theme';
+import { spacing, useTheme } from '@/lib/theme';
+import { useAuthStore } from '@/store/auth';
 
 export default function SettingsScreen() {
   const t = useTheme();
-  const profile = useQuery({ queryKey: ['me'], queryFn: fetchProfile });
+  const user = useAuthStore((s) => s.user);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
 
@@ -34,7 +34,7 @@ export default function SettingsScreen() {
   }
 
   function confirmLogout() {
-    Alert.alert('Cerrar sesión', '¿Seguro que querés salir?', [
+    Alert.alert('Cerrar sesión', '¿Seguro que quieres salir?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Cerrar sesión', style: 'destructive', onPress: () => void logout() },
     ]);
@@ -42,16 +42,54 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
-      <Card>
-        <Body style={{ fontWeight: '600' }}>
-          {profile.data ? `${profile.data.firstName} ${profile.data.lastName}` : 'Tu cuenta'}
-        </Body>
-        {profile.data ? <Muted>{profile.data.email}</Muted> : null}
+      <Card variant="inverse">
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+          <Avatar text={`${user?.firstName ?? ''} ${user?.lastName ?? ''}`} size={56} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: t.foreground, fontSize: 18, fontWeight: '700' }} numberOfLines={1}>
+              {user ? `${user.firstName} ${user.lastName}` : 'Tu cuenta'}
+            </Text>
+            <Muted style={{ fontSize: 13 }}>{user ? `@${user.username} · ${user.email}` : ''}</Muted>
+          </View>
+        </View>
       </Card>
+
+      <View style={{ gap: spacing.sm }}>
+        <MenuItem icon="person-outline" title="Perfil" description="Nombre y usuario" onPress={() => router.push('/profile')} />
+        <MenuItem
+          icon="options-outline"
+          title="Preferencias"
+          description="Tema, moneda, idioma y zona horaria"
+          onPress={() => router.push('/preferences')}
+        />
+        <MenuItem
+          icon="wallet-outline"
+          title="Moneda capital"
+          description="Monedas que usas como dinero (USDT…)"
+          onPress={() => router.push('/capital')}
+        />
+        <MenuItem
+          icon="briefcase-outline"
+          title="Portafolios"
+          description="Crear, editar y publicar en el ranking"
+          onPress={() => router.push('/portfolios')}
+        />
+        <MenuItem
+          icon="link-outline"
+          title="Conexión con Binance"
+          description="Conectar, sincronizar o desconectar"
+          onPress={() => router.push('/exchange')}
+        />
+      </View>
 
       <Card>
         <Row>
-          <Body>Desbloqueo con huella / Face ID</Body>
+          <View style={{ flex: 1 }}>
+            <Body style={{ fontWeight: '600' }}>Desbloqueo con huella / Face ID</Body>
+            <Muted style={{ fontSize: 13 }}>
+              {biometricAvailable ? 'Al abrir la app se pedirá tu huella o Face ID.' : 'Este teléfono no tiene biometría configurada.'}
+            </Muted>
+          </View>
           <Switch
             accessibilityLabel="Desbloqueo biométrico"
             value={biometricEnabled}
@@ -60,17 +98,11 @@ export default function SettingsScreen() {
             trackColor={{ true: t.primary, false: t.surfaceRaised }}
           />
         </Row>
-        {!biometricAvailable ? (
-          <Muted>Este teléfono no tiene biometría configurada.</Muted>
-        ) : (
-          <Muted>Al abrir la app se pedirá tu huella o Face ID.</Muted>
-        )}
       </Card>
 
       <PalettePicker />
 
-      <Button title="Conexión con Binance" variant="secondary" onPress={() => router.push('/exchange')} />
-      <Button title="Cerrar sesión" variant="secondary" onPress={confirmLogout} />
+      <Button title="Cerrar sesión" variant="secondary" icon="log-out-outline" onPress={confirmLogout} />
       <Button title="Eliminar cuenta" variant="danger" onPress={() => router.push('/delete-account')} />
       <Muted style={{ textAlign: 'center' }}>Versión {APP_VERSION}</Muted>
     </Screen>

@@ -312,6 +312,55 @@ export function SectionHeader({ title, action, onAction }: { title: string; acti
   );
 }
 
+// Fila de menú: ícono en círculo, título, descripción y flecha.
+export function MenuItem({
+  icon,
+  title,
+  description,
+  onPress,
+}: {
+  icon: IconName;
+  title: string;
+  description?: string;
+  onPress: () => void;
+}) {
+  const t = useTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+        padding: spacing.lg,
+        borderRadius: radius.lg,
+        backgroundColor: pressed ? t.surfaceRaised : t.surface,
+        transform: [{ scale: pressed ? 0.98 : 1 }],
+      })}
+    >
+      <View
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: 22,
+          backgroundColor: t.surfaceRaised,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Ionicons name={icon} size={20} color={t.foreground} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: t.foreground, fontSize: 16, fontWeight: '600' }}>{title}</Text>
+        {description ? <Text style={{ color: t.textSecondary, fontSize: 13 }}>{description}</Text> : null}
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={t.textMuted} />
+    </Pressable>
+  );
+}
+
 export function TextField({ label, error, ...props }: TextInputProps & { label: string; error?: string }) {
   const t = useTheme();
   return (

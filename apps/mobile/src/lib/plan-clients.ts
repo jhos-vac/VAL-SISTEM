@@ -25,6 +25,9 @@ export const fetchAssets = () => request<MarketAsset[]>('/market/assets');
 
 export const fetchCapitalAssets = () => requestWithAuth<string[]>('/capital-assets');
 
+export const updateCapitalAssets = (symbols: string[]) =>
+  requestWithAuth<string[]>('/capital-assets', { method: 'PUT', body: JSON.stringify({ symbols }) });
+
 // --- Rendimiento por compra (lotes) ---
 
 export function fetchLots(portfolioId: string, assetSymbol?: string) {

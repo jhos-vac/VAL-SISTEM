@@ -2,7 +2,12 @@ import { useState } from 'react';
 import { Alert } from 'react-native';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Body, Button, Card, ErrorText, Loading, Muted, Row, Screen, TextField } from '@/components/ui';
-import { connectExchangeAccount, fetchExchangeAccounts, syncExchangeAccount } from '@/lib/clients';
+import {
+  connectExchangeAccount,
+  disconnectExchangeAccount,
+  fetchExchangeAccounts,
+  syncExchangeAccount,
+} from '@/lib/clients';
 
 // Conexión de Binance con una API key de SOLO LECTURA. La key viaja al
 // backend, que la valida y la guarda cifrada; el teléfono no la guarda.
@@ -35,6 +40,22 @@ export default function ExchangeScreen() {
     onError: (err) => Alert.alert('Error', err.message),
   });
 
+  const disconnect = useMutation({
+    mutationFn: disconnectExchangeAccount,
+    onSuccess: () => queryClient.invalidateQueries(),
+    onError: (err) => Alert.alert('Error', err.message),
+  });
+
+  const confirmDisconnect = (id: string, label: string) =>
+    Alert.alert(
+      'Desconectar cuenta',
+      `¿Desconectar "${label}"? Se borran la API key y las posiciones que vinieron de Binance. Tus movimientos manuales no se tocan.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Desconectar', style: 'destructive', onPress: () => disconnect.mutate(id) },
+      ],
+    );
+
   return (
     <Screen onRefresh={() => void accounts.refetch()} refreshing={accounts.isRefetching}>
       {accounts.isLoading ? <Loading /> : null}
@@ -54,6 +75,12 @@ export default function ExchangeScreen() {
             variant="secondary"
             onPress={() => sync.mutate(a.id)}
             loading={sync.isPending && sync.variables === a.id}
+          />
+          <Button
+            title="Desconectar"
+            variant="danger"
+            onPress={() => confirmDisconnect(a.id, a.label)}
+            loading={disconnect.isPending && disconnect.variables === a.id}
           />
         </Card>
       ))}
