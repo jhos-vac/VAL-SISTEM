@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { Pressable, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Tabs } from 'expo-router/js-tabs';
-import { GREEN, radius, spacing, useTheme } from '@/lib/theme';
+import { radius, spacing, useTheme } from '@/lib/theme';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 type TabBarProps = Parameters<NonNullable<ComponentProps<typeof Tabs>['tabBar']>>[0];
@@ -16,7 +16,7 @@ export const TAB_ICONS: Record<string, { icon: IconName; active: IconName }> = {
 };
 
 // Barra de pestañas flotante: pastilla oscura con la pestaña activa en un
-// círculo menta (como la referencia de diseño).
+// círculo claro (como la referencia de diseño).
 export function TabBar({ state, descriptors, navigation, insets }: TabBarProps) {
   const t = useTheme();
   return (
@@ -64,13 +64,13 @@ export function TabBar({ state, descriptors, navigation, insets }: TabBarProps) 
                 borderRadius: 26,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: focused ? GREEN.mint : 'transparent',
+                backgroundColor: focused ? t.tabActive : 'transparent',
               }}
             >
               <Ionicons
                 name={focused ? icons.active : icons.icon}
                 size={22}
-                color={focused ? GREEN.night : GREEN.sage}
+                color={focused ? t.tabActiveIcon : t.tabIcon}
               />
             </Pressable>
           );

@@ -3,6 +3,7 @@ import { Alert, Switch } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Body, Button, Card, Muted, Row, Screen } from '@/components/ui';
+import { PalettePicker } from '@/components/PalettePicker';
 import { authenticateWithBiometrics, isBiometricAvailable } from '@/lib/biometrics';
 import { fetchProfile, updateSettings } from '@/lib/clients';
 import { APP_VERSION } from '@/lib/config';
@@ -65,6 +66,8 @@ export default function SettingsScreen() {
           <Muted>Al abrir la app se pedirá tu huella o Face ID.</Muted>
         )}
       </Card>
+
+      <PalettePicker />
 
       <Button title="Conexión con Binance" variant="secondary" onPress={() => router.push('/exchange')} />
       <Button title="Cerrar sesión" variant="secondary" onPress={confirmLogout} />
