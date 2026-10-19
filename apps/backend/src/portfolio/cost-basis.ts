@@ -199,3 +199,12 @@ export function summarizePositions(
     changePercent24h,
   };
 }
+
+// De dónde sale el precio de compra (avgPrice) de una posición.
+export type CostSource =
+  | 'manual' // movimiento cargado a mano
+  | 'trades' // historial de trades de Binance
+  | 'history' // precio al momento de cada depósito/conversión/compra
+  | 'first_seen' // precio del día en que la app la vio por primera vez
+  | 'stable' // USDT: siempre 1
+  | 'legacy';

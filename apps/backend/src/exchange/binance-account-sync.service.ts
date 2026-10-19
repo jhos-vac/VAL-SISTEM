@@ -8,6 +8,12 @@ import {
 import { decryptSecret } from '../common/security/encryption.util';
 import { computeCostBasisFromTrades } from '../portfolio/cost-basis';
 import {
+  carryForwardCost,
+  costFromAcquisitions,
+  type Acquisition,
+  type CostSource,
+} from './acquisition-cost';
+import {
   ExchangeAccountStore,
   type StoredExchangeAccount,
 } from '../portfolio/exchange-account.store';
@@ -42,8 +48,10 @@ interface Matched {
 //
 // El balance de Binance es la fuente de verdad para la CANTIDAD. El costo
 // base y la ganancia realizada salen del historial de trades cuando existe
-// (ver computeCostBasisFromTrades); si un activo no tiene trades (se
-// depositó directo, o es USDT), se usa el precio de mercado actual.
+// (ver computeCostBasisFromTrades). Si una moneda no tiene trades (llegó por
+// Convertir, tarjeta, depósito o Earn), su precio de compra se calcula UNA
+// vez con el precio de cada transacción en su momento y después queda fijo:
+// los syncs siguientes lo conservan (ver acquisition-cost.ts). USDT vale 1.
 @Injectable()
 export class BinanceAccountSyncService {
   private readonly logger = new Logger(BinanceAccountSyncService.name);
@@ -193,6 +201,15 @@ export class BinanceAccountSyncService {
         if (trades.length > 0) tradesByAssetId.set(asset.id, trades);
       }
 
+      const costs = await this.resolveCosts(
+        account,
+        apiKey,
+        apiSecret,
+        [...spotMatched, ...earnMatched, ...fundingMatched],
+        tradesByAssetId,
+        prices,
+      );
+
       // El costo base es el mismo para la moneda en cualquier wallet, pero
       // la ganancia realizada y el historial se cuentan una sola vez: en
       // Spot si la moneda está ahí, si no en Earn, si no en Fondos.
@@ -204,21 +221,15 @@ export class BinanceAccountSyncService {
       ): ExchangeHolding[] =>
         matched.map(({ quantity, asset }) => {
           const trades = tradesByAssetId.get(asset.id);
-          const computed =
-            asset.symbol === 'USDT'
-              ? { avgPrice: 1, realizedProfit: 0 }
-              : trades
-                ? computeCostBasisFromTrades(trades)
-                : {
-                    avgPrice: prices.get(asset.id)?.price ?? 0,
-                    realizedProfit: 0,
-                  };
+          const cost = costs.get(asset.id)!;
           const withHistory = carriesHistory(asset.symbol);
           return {
             assetId: asset.id,
             quantity,
-            avgPrice: computed.avgPrice,
-            realizedProfit: withHistory ? computed.realizedProfit : 0,
+            avgPrice: cost.avgPrice,
+            realizedProfit: withHistory ? cost.realizedProfit : 0,
+            costSource: cost.costSource,
+            costFixedAt: cost.costFixedAt,
             // El orderId de Binance es numérico y exchangeOrderId es
             // @db.Uuid: queda como referencia en notes.
             trades:
@@ -264,7 +275,14 @@ export class BinanceAccountSyncService {
         earnMatched.length > 0 ? `, ${earnMatched.length} en Simple Earn` : '';
       const fundingNote =
         fundingMatched.length > 0 ? `, ${fundingMatched.length} en Fondos` : '';
-      const message = `${totalPositions} activo(s) sincronizado(s)${earnNote}${fundingNote} (${tradesByAssetId.size} con historial de trades real)${registeredNote}${skippedNote}.`;
+      const fromHistory = [...costs.values()].filter(
+        (c) => c.costSource === 'history' && c.isNew,
+      ).length;
+      const historyNote =
+        fromHistory > 0
+          ? `, ${fromHistory} con precio de compra tomado de sus depósitos o conversiones`
+          : '';
+      const message = `${totalPositions} activo(s) sincronizado(s)${earnNote}${fundingNote} (${tradesByAssetId.size} con historial de trades real${historyNote})${registeredNote}${skippedNote}.`;
 
       await this.accounts.recordSync(account.id, {
         status: 'completed',
@@ -288,4 +306,136 @@ export class BinanceAccountSyncService {
       return { status: 'failed', recordsProcessed: 0, message };
     }
   }
+
+  // Precio de compra de cada moneda. Con trades: sale de ellos. Sin trades:
+  // si ya estaba fijado se conserva (y solo lo que llegó de más se valora a
+  // hoy); si es la primera vez, se busca el precio de cada depósito,
+  // conversión o compra con tarjeta en su momento; si no hay registro, queda
+  // fijo el precio de hoy.
+  private async resolveCosts(
+    account: ExchangeAccountForSync,
+    apiKey: string,
+    apiSecret: string,
+    matched: Matched[],
+    tradesByAssetId: Map<string, BinanceTrade[]>,
+    prices: Map<string, { price: number }>,
+  ): Promise<Map<string, ResolvedCost>> {
+    const now = new Date();
+    const previous = await this.ledger.currentCosts(account.id);
+    const totals = new Map<
+      string,
+      { asset: Matched['asset']; quantity: number }
+    >();
+    for (const m of matched) {
+      const t = totals.get(m.asset.id);
+      totals.set(m.asset.id, {
+        asset: m.asset,
+        quantity: (t?.quantity ?? 0) + m.quantity,
+      });
+    }
+
+    const needHistory = [...totals.values()]
+      .filter(({ asset }) => {
+        if (asset.symbol === 'USDT' || tradesByAssetId.has(asset.id))
+          return false;
+        const prev = previous.get(asset.id);
+        return !prev || prev.costSource === 'legacy';
+      })
+      .map(({ asset }) => asset.symbol);
+    const acquisitions =
+      needHistory.length > 0 && !account.isTestnet
+        ? await this.loadAcquisitions(apiKey, apiSecret, new Set(needHistory))
+        : new Map<string, Acquisition[]>();
+
+    const costs = new Map<string, ResolvedCost>();
+    for (const [assetId, { asset, quantity }] of totals) {
+      const current = prices.get(assetId)?.price ?? 0;
+      const prev = previous.get(assetId);
+      const fixedAt = prev?.costFixedAt ?? now;
+      const trades = tradesByAssetId.get(assetId);
+      if (asset.symbol === 'USDT') {
+        costs.set(assetId, {
+          avgPrice: 1,
+          realizedProfit: 0,
+          costSource: 'stable',
+          costFixedAt: fixedAt,
+          isNew: !prev,
+        });
+      } else if (trades) {
+        const c = computeCostBasisFromTrades(trades);
+        costs.set(assetId, {
+          avgPrice: c.avgPrice,
+          realizedProfit: c.realizedProfit,
+          costSource: 'trades',
+          costFixedAt: fixedAt,
+          isNew: !prev,
+        });
+      } else if (prev && prev.costSource !== 'legacy') {
+        costs.set(assetId, {
+          avgPrice: carryForwardCost(prev, quantity, current),
+          realizedProfit: 0,
+          costSource: prev.costSource as CostSource,
+          costFixedAt: fixedAt,
+          isNew: false,
+        });
+      } else {
+        const fromHistory = costFromAcquisitions(
+          quantity,
+          acquisitions.get(asset.symbol) ?? [],
+          current,
+        );
+        costs.set(assetId, {
+          avgPrice: fromHistory?.avgPrice ?? current,
+          realizedProfit: 0,
+          costSource: fromHistory ? 'history' : 'first_seen',
+          costFixedAt: now,
+          isNew: true,
+        });
+      }
+    }
+    return costs;
+  }
+
+  // Depósitos, conversiones y compras con tarjeta del último año de las
+  // monedas pedidas, con el precio en USDT de cada una en su momento.
+  private async loadAcquisitions(
+    apiKey: string,
+    apiSecret: string,
+    symbols: Set<string>,
+  ): Promise<Map<string, Acquisition[]>> {
+    const since = Date.now() - 365 * 86_400_000;
+    const [deposits, converts, fiat] = await Promise.all([
+      this.binanceClient.getDeposits(apiKey, apiSecret, since),
+      this.binanceClient.getConvertTrades(apiKey, apiSecret, since),
+      this.binanceClient.getFiatBuys(apiKey, apiSecret, since),
+    ]);
+    const bySymbol = new Map<string, Acquisition[]>();
+    // Tope de consultas de precio histórico por sync (endpoint público).
+    const MAX_LOOKUPS = 150;
+    let lookups = 0;
+    const records = [...deposits, ...converts, ...fiat]
+      .filter((r) => symbols.has(r.asset) && r.quantity > 0)
+      .sort((a, b) => b.time - a.time);
+    for (const r of records) {
+      let price = r.price;
+      if (price === null && lookups < MAX_LOOKUPS) {
+        lookups++;
+        price = await this.binanceClient.getPriceAt(r.asset, r.time);
+      }
+      if (price === null) continue;
+      const list = bySymbol.get(r.asset) ?? [];
+      list.push({ quantity: r.quantity, time: r.time, price });
+      bySymbol.set(r.asset, list);
+    }
+    return bySymbol;
+  }
+}
+
+interface ResolvedCost {
+  avgPrice: number;
+  realizedProfit: number;
+  costSource: CostSource;
+  costFixedAt: Date;
+  // Precio calculado en este sync (no venía de uno anterior).
+  isNew: boolean;
 }

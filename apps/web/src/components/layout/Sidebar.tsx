@@ -34,6 +34,7 @@ const NAV_GROUPS = [
   {
     label: "Activos",
     items: [
+      { href: "/review", label: "Revisión", icon: IconTrendingUp },
       { href: "/positions", label: "Posiciones", icon: IconList },
       { href: "/lots", label: "Por compra", icon: IconLayers },
       { href: "/transactions", label: "Transacciones", icon: IconArrowsExchange },

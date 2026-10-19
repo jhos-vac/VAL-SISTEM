@@ -171,7 +171,7 @@ export default function DashboardScreen() {
             filled
             onPress={() => router.push(isAggregate ? '/portfolios' : '/transaction-new')}
           />
-          <ActionButton icon="trending-up" label="Mercado" onPress={() => router.push('/market')} />
+          <ActionButton icon="pulse-outline" label="Revisión" onPress={() => router.push('/review')} />
           <ActionButton icon="flag-outline" label="Metas" onPress={() => router.push('/goals')} />
           <ActionButton icon="compass-outline" label="Estrategia" onPress={() => router.push('/strategy')} />
         </View>

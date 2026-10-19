@@ -3,6 +3,10 @@ import { createHmac } from 'node:crypto';
 
 const MAINNET_BASE_URL = 'https://api.binance.com';
 const TESTNET_BASE_URL = 'https://testnet.binance.vision';
+const DAY_MS = 86_400_000;
+// Monedas que valen ~1 USD: una conversión desde ellas ya trae el precio.
+const STABLES = new Set(['USDT', 'USDC', 'FDUSD', 'BUSD', 'TUSD', 'DAI']);
+const USD_LIKE = new Set(['USD', ...STABLES]);
 
 export interface BinanceAccountSnapshot {
   canTrade: boolean;
@@ -257,4 +261,166 @@ export class BinanceAccountClientService {
 
     return [...totals].map(([asset, total]) => ({ asset, total }));
   }
+
+  // --- Entradas de monedas sin trade (para fijar su precio de compra) ---
+  // Cada una devuelve [] si Binance falla o la key no tiene permiso: es
+  // información extra, nunca rompe el sync.
+
+  // Depósitos acreditados (status=1). Binance acepta ventanas de 90 días.
+  async getDeposits(
+    apiKey: string,
+    apiSecret: string,
+    since: number,
+    until = Date.now(),
+  ): Promise<AcquisitionRecord[]> {
+    const WINDOW = 89 * DAY_MS;
+    const out: AcquisitionRecord[] = [];
+    for (let start = since; start < until; start += WINDOW) {
+      try {
+        const rows = await this.signedSapi<
+          Array<{
+            coin: string;
+            amount: string;
+            insertTime: number;
+            status: number;
+          }>
+        >(
+          'GET',
+          '/sapi/v1/capital/deposit/hisrec',
+          {
+            status: 1,
+            startTime: start,
+            endTime: Math.min(start + WINDOW, until),
+            limit: 1000,
+          },
+          apiKey,
+          apiSecret,
+        );
+        for (const r of rows) {
+          out.push({
+            asset: r.coin,
+            quantity: Number(r.amount),
+            time: r.insertTime,
+            price: null,
+          });
+        }
+      } catch {
+        return out;
+      }
+    }
+    return out;
+  }
+
+  // Conversiones (Convertir). Ventanas de 30 días. Si se pagó con USDT el
+  // precio sale directo de la conversión.
+  async getConvertTrades(
+    apiKey: string,
+    apiSecret: string,
+    since: number,
+    until = Date.now(),
+  ): Promise<AcquisitionRecord[]> {
+    const WINDOW = 29 * DAY_MS;
+    const out: AcquisitionRecord[] = [];
+    for (let start = since; start < until; start += WINDOW) {
+      try {
+        const page = await this.signedSapi<{
+          list?: Array<{
+            fromAsset: string;
+            fromAmount: string;
+            toAsset: string;
+            toAmount: string;
+            createTime: number;
+            orderStatus: string;
+          }>;
+        }>(
+          'GET',
+          '/sapi/v1/convert/tradeFlow',
+          {
+            startTime: start,
+            endTime: Math.min(start + WINDOW, until),
+            limit: 1000,
+          },
+          apiKey,
+          apiSecret,
+        );
+        for (const r of page.list ?? []) {
+          if (r.orderStatus !== 'SUCCESS') continue;
+          const toAmount = Number(r.toAmount);
+          out.push({
+            asset: r.toAsset,
+            quantity: toAmount,
+            time: r.createTime,
+            price:
+              STABLES.has(r.fromAsset) && toAmount > 0
+                ? Number(r.fromAmount) / toAmount
+                : null,
+          });
+        }
+      } catch {
+        return out;
+      }
+    }
+    return out;
+  }
+
+  // Compras con tarjeta o transferencia bancaria (Comprar cripto).
+  async getFiatBuys(
+    apiKey: string,
+    apiSecret: string,
+    since: number,
+    until = Date.now(),
+  ): Promise<AcquisitionRecord[]> {
+    try {
+      const page = await this.signedSapi<{
+        data?: Array<{
+          cryptoCurrency: string;
+          obtainAmount: string;
+          fiatCurrency: string;
+          price: string;
+          status: string;
+          createTime: number;
+        }>;
+      }>(
+        'GET',
+        '/sapi/v1/fiat/payments',
+        { transactionType: 0, beginTime: since, endTime: until, rows: 500 },
+        apiKey,
+        apiSecret,
+      );
+      return (page.data ?? [])
+        .filter((r) => r.status === 'Completed')
+        .map((r) => ({
+          asset: r.cryptoCurrency,
+          quantity: Number(r.obtainAmount),
+          time: r.createTime,
+          price: USD_LIKE.has(r.fiatCurrency) ? Number(r.price) : null,
+        }));
+    } catch {
+      return [];
+    }
+  }
+
+  // Precio contra USDT en un momento dado (vela de 1 minuto, endpoint
+  // público). null si no hay par o Binance no responde.
+  async getPriceAt(symbol: string, time: number): Promise<number | null> {
+    try {
+      const res = await fetch(
+        `${MAINNET_BASE_URL}/api/v3/klines?symbol=${symbol}USDT&interval=1m&startTime=${time}&limit=1`,
+      );
+      if (!res.ok) return null;
+      const rows = (await res.json()) as Array<[number, string]>;
+      const open = rows[0] ? Number(rows[0][1]) : NaN;
+      return Number.isFinite(open) && open > 0 ? open : null;
+    } catch {
+      return null;
+    }
+  }
+}
+
+export interface AcquisitionRecord {
+  asset: string;
+  quantity: number;
+  time: number;
+  // Precio en USDT si la transacción lo trae; si no, se busca por fecha.
+  price: number | null;
 }

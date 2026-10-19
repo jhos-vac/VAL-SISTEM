@@ -82,6 +82,11 @@ model AssetPosition {
   avgPrice         Float    @map("avg_price")
   realizedProfit   Float    @map("realized_profit")
   unrealizedProfit Float    @map("unrealized_profit")
+  // De dónde sale el precio de compra (avgPrice): manual, trades, history,
+  // first_seen, stable o legacy. Ver exchange/acquisition-cost.ts.
+  costSource       String    @default("manual") @map("cost_source")
+  // Desde cuándo está fijo el precio de compra (posiciones de exchange).
+  costFixedAt      DateTime? @map("cost_fixed_at")
   createdAt        DateTime @default(now()) @map("created_at")
   updatedAt        DateTime @default(now()) @map("updated_at")
 

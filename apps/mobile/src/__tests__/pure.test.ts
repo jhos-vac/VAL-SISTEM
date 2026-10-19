@@ -1,7 +1,7 @@
 import type { Portfolio } from '@val-sistem/shared';
 import { resolveApiUrl } from '@/lib/config';
 import { describeAge } from '@/lib/staleness';
-import { resolveActivePortfolio } from '@val-sistem/shared';
+import { buildReview, resolveActivePortfolio } from '@val-sistem/shared';
 
 describe('resolveApiUrl', () => {
   it('usa EXPO_PUBLIC_API_URL sin barra final', () => {
@@ -57,5 +57,47 @@ describe('resolveActivePortfolio', () => {
 
   it('sin portafolios no hay activo', () => {
     expect(resolveActivePortfolio([], null).portfolio).toBeNull();
+  });
+});
+
+describe('buildReview', () => {
+  const base = {
+    portfolioId: 'p',
+    assetName: 'Bitcoin',
+    realizedPnl: 0,
+    unrealizedPnl: 0,
+    isCapital: false,
+  };
+  const pos = (id: string, symbol: string, quantity: number, averageCost: number, currentPrice: number) => ({
+    ...base,
+    id,
+    walletId: id,
+    assetSymbol: symbol,
+    quantity,
+    averageCost,
+    currentPrice,
+    currentValue: quantity * currentPrice,
+  });
+
+  it('suma la misma moneda en varias wallets con su precio de compra promedio', () => {
+    const { rows } = buildReview([pos('a', 'BTC', 1, 100, 150), pos('b', 'BTC', 1, 200, 150)]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.buyPrice).toBe(150);
+    expect(rows[0]!.changePercent).toBe(0);
+  });
+
+  it('calcula cuánto subió o bajó cada moneda desde la compra y el resumen', () => {
+    const { rows, summary } = buildReview([pos('a', 'BTC', 1, 100, 150), pos('b', 'ETH', 2, 50, 40)]);
+    expect(rows.map((r) => [r.assetSymbol, r.changePercent])).toEqual([
+      ['BTC', 50],
+      ['ETH', -20],
+    ]);
+    expect(summary.invested).toBe(200);
+    expect(summary.value).toBe(230);
+    expect(summary.pnlPercent).toBe(15);
+    expect(summary.up).toBe(1);
+    expect(summary.down).toBe(1);
+    expect(summary.best?.assetSymbol).toBe('BTC');
+    expect(summary.worst?.assetSymbol).toBe('ETH');
   });
 });

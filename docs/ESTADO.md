@@ -208,8 +208,17 @@ Diferencias del sync de Binance (`computeCostBasisFromTrades`):
   en la moneda base.
 - Los depósitos directos y las transferencias no aparecen en `myTrades`.
   La ganancia es una buena aproximación, no contabilidad exacta.
-- USDT siempre tiene costo 1. Una moneda sin trades usa el precio de
-  mercado.
+- USDT siempre tiene costo 1.
+- **Precio de compra fijo.** Una moneda sin trades (llegó por Convertir,
+  tarjeta, depósito o Earn) se valora UNA vez con el precio de cada depósito,
+  conversión o compra con tarjeta del último año, en su momento (velas de 1
+  minuto de Binance). Si no hay registro, se fija el precio del día en que la
+  app la vio. Los syncs siguientes conservan ese precio; si llega más
+  cantidad, solo lo nuevo se valora al precio de ese momento. Cada posición
+  guarda `cost_source` y `cost_fixed_at`. Las posiciones de exchange
+  anteriores quedaron como `legacy` y se recalculan en el próximo sync.
+- **Revisión** (web `/review` y móvil): cuánto subió o bajó cada moneda
+  desde su precio de compra, con el origen de ese precio.
 - Cada sync reconstruye las posiciones de la wallet (modo espejo).
 
 ## Panel de administración

@@ -81,6 +81,7 @@ export default function RootLayout() {
           <Stack.Screen name="profile" options={{ title: 'Perfil' }} />
           <Stack.Screen name="preferences" options={{ title: 'Preferencias' }} />
           <Stack.Screen name="capital" options={{ title: 'Moneda capital' }} />
+          <Stack.Screen name="review" options={{ title: 'Revisión' }} />
         </Stack.Protected>
       </Stack>
     </PersistQueryClientProvider>

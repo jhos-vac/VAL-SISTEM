@@ -3,7 +3,11 @@ import { PortfolioPrismaService } from '../prisma/portfolio-prisma.service';
 import { MarketService } from '../market/market.service';
 import { CreatePortfolioDto } from './dto/create-portfolio.dto';
 import { UpdatePortfolioDto } from './dto/update-portfolio.dto';
-import { summarizePositions, valuePosition } from './cost-basis';
+import {
+  summarizePositions,
+  valuePosition,
+  type CostSource,
+} from './cost-basis';
 import { lockForTransaction } from '../common/db/advisory-lock';
 
 // Id especial para pedir la vista "General": suma de todos los portafolios
@@ -39,6 +43,10 @@ export interface AssetPositionDto {
   unrealizedPnl: number;
   // Moneda capital del usuario: no cuenta en invertido ni en ganancias.
   isCapital: boolean;
+  // De dónde sale el precio de compra y desde cuándo está fijo (ISO).
+  costSource: CostSource;
+  costFixedAt: string | null;
+  changePercent24h: number;
 }
 
 export interface EnrichedPosition extends AssetPositionDto {
@@ -304,6 +312,8 @@ export class PortfolioService {
         realizedPnl: p.realizedProfit,
         unrealizedPnl,
         isCapital: capitalAssetIds.has(p.assetId),
+        costSource: p.costSource as CostSource,
+        costFixedAt: p.costFixedAt?.toISOString() ?? null,
         changePercent24h: priceInfo?.changePercent24h ?? 0,
       };
     });
@@ -338,10 +348,7 @@ export class PortfolioService {
     const enriched = (
       await this.getEnrichedPositions(userId, portfolioId)
     ).filter((p) => !p.isCapital);
-    // No se expone `changePercent24h` en el contrato público de posiciones
-    // (solo se usa internamente para ponderar el summary) — se arma el
-    // objeto explícito en vez de desestructurar para no dejar variables
-    // sin usar.
+    // Se arma el objeto explícito: el contrato público no lleva assetId.
     return enriched.map((p) => ({
       id: p.id,
       portfolioId: p.portfolioId,
@@ -355,6 +362,9 @@ export class PortfolioService {
       realizedPnl: p.realizedPnl,
       unrealizedPnl: p.unrealizedPnl,
       isCapital: p.isCapital,
+      costSource: p.costSource,
+      costFixedAt: p.costFixedAt,
+      changePercent24h: p.changePercent24h,
     }));
   }
 

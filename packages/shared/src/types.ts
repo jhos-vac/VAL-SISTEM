@@ -89,7 +89,25 @@ export interface AssetPosition {
   unrealizedPnl: number;
   // Siempre false en /positions (el capital no se lista como posición).
   isCapital: boolean;
+  // De dónde sale el precio de compra (averageCost), que queda fijo:
+  // manual, trades (compras en Binance), history (precio de cada depósito o
+  // conversión en su momento), first_seen (precio del día en que la app la
+  // vio), stable (USDT = 1) o legacy (pendiente de recalcular).
+  costSource?: CostSource;
+  costFixedAt?: string | null;
+  changePercent24h?: number;
 }
+
+export type CostSource = 'manual' | 'trades' | 'history' | 'first_seen' | 'stable' | 'legacy';
+
+export const COST_SOURCE_LABELS: Record<CostSource, string> = {
+  manual: 'Cargado por ti',
+  trades: 'Tus compras en Binance',
+  history: 'Precio al recibirla',
+  first_seen: 'Precio al conectarla',
+  stable: 'Estable (1 USD)',
+  legacy: 'Recalculando…',
+};
 
 export type TransactionType = 'buy' | 'sell' | 'transfer_in' | 'transfer_out';
 

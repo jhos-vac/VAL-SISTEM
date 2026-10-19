@@ -26,6 +26,10 @@ export interface ExchangeHolding {
   quantity: number;
   avgPrice: number;
   realizedProfit: number;
+  // De dónde sale avgPrice y desde cuándo está fijo (ver
+  // exchange/acquisition-cost.ts).
+  costSource: string;
+  costFixedAt: Date;
   // Solo en la wallet que "lleva" el historial de esa moneda (para no
   // contar dos veces la misma compra).
   trades: ExchangeTrade[];
@@ -140,6 +144,8 @@ export class PositionLedgerService {
               avgPrice: h.avgPrice,
               realizedProfit: h.realizedProfit,
               unrealizedProfit: 0,
+              costSource: h.costSource,
+              costFixedAt: h.costFixedAt,
             });
             for (const t of h.trades) {
               const transactionTypeId = typeId.get(t.side);
@@ -168,4 +174,38 @@ export class PositionLedgerService {
       { timeout: REPLACE_TIMEOUT_MS },
     );
   }
+
+  // Precio de compra guardado por moneda en las wallets de la cuenta (es el
+  // mismo en todas sus wallets), con la cantidad total. El sync lo usa para
+  // conservar precios ya fijados en vez de recalcularlos.
+  async currentCosts(accountId: string): Promise<Map<string, StoredCost>> {
+    const rows = await this.prisma.assetPosition.findMany({
+      where: { wallet: { exchangeAccountId: accountId } },
+      select: {
+        assetId: true,
+        quantity: true,
+        avgPrice: true,
+        costSource: true,
+        costFixedAt: true,
+      },
+    });
+    const costs = new Map<string, StoredCost>();
+    for (const r of rows) {
+      const prev = costs.get(r.assetId);
+      costs.set(r.assetId, {
+        quantity: (prev?.quantity ?? 0) + r.quantity,
+        avgPrice: r.avgPrice,
+        costSource: r.costSource,
+        costFixedAt: prev?.costFixedAt ?? r.costFixedAt,
+      });
+    }
+    return costs;
+  }
+}
+
+export interface StoredCost {
+  quantity: number;
+  avgPrice: number;
+  costSource: string;
+  costFixedAt: Date | null;
 }
