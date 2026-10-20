@@ -3,6 +3,7 @@ import { createHmac } from 'node:crypto';
 
 const MAINNET_BASE_URL = 'https://api.binance.com';
 const TESTNET_BASE_URL = 'https://testnet.binance.vision';
+const MARKET_DATA_BASE_URL = 'https://data-api.binance.vision';
 const DAY_MS = 86_400_000;
 // Monedas que valen ~1 USD: una conversión desde ellas ya trae el precio.
 const STABLES = new Set(['USDT', 'USDC', 'FDUSD', 'BUSD', 'TUSD', 'DAI']);
@@ -26,13 +27,67 @@ export interface BinanceTrade {
   isBuyer: boolean;
 }
 
+// Binance bloqueó las consultas de esta IP (HTTP 418/429) hasta `until`.
+// Mientras dure, no se le vuelve a pegar: insistir alarga el bloqueo.
+export class BinanceRateLimitError extends Error {
+  constructor(readonly until: number) {
+    const minutes = Math.max(1, Math.ceil((until - Date.now()) / 60_000));
+    super(
+      `Binance limitó temporalmente las consultas del servidor. Se reintenta solo en unos ${minutes} min.`,
+    );
+  }
+}
+
+// Falla de Binance que no tiene que ver con permisos (servidor caído, red):
+// el sync se aborta para no guardar precios incompletos.
+export class BinanceTransientError extends Error {}
+
 // Cliente mínimo para los endpoints *firmados* de Binance (requieren API
 // key + secret) — distinto de BinanceTickerSyncService (market/), que
 // solo pega contra el endpoint público de precios y no firma nada.
 @Injectable()
 export class BinanceAccountClientService {
+  private bannedUntil = 0;
+
   private sign(query: string, apiSecret: string): string {
     return createHmac('sha256', apiSecret).update(query).digest('hex');
+  }
+
+  isRateLimited(): boolean {
+    return Date.now() < this.bannedUntil;
+  }
+
+  private guard(): void {
+    if (this.isRateLimited()) throw new BinanceRateLimitError(this.bannedUntil);
+  }
+
+  // 418/429: guarda hasta cuándo dura el bloqueo y corta. 5xx: transitorio.
+  private async checkLimits(res: Response): Promise<void> {
+    if (res.status === 418 || res.status === 429) {
+      const body = await res.text().catch(() => '');
+      const fromBody = /banned until (\d+)/.exec(body)?.[1];
+      const retryAfter = Number(res.headers.get('retry-after'));
+      this.bannedUntil = fromBody
+        ? Number(fromBody)
+        : Date.now() + (retryAfter > 0 ? retryAfter * 1000 : 60_000);
+      throw new BinanceRateLimitError(this.bannedUntil);
+    }
+    if (res.status >= 500) {
+      throw new BinanceTransientError(`Binance respondió ${res.status}`);
+    }
+  }
+
+  private async fetchOrTransient(
+    url: string,
+    init?: RequestInit,
+  ): Promise<Response> {
+    try {
+      return await fetch(url, init);
+    } catch (err) {
+      throw new BinanceTransientError(
+        `No se pudo conectar con Binance: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   // Prueba la API key contra /api/v3/account (requiere el permiso
@@ -44,12 +99,13 @@ export class BinanceAccountClientService {
     apiSecret: string,
     isTestnet = false,
   ): Promise<BinanceAccountSnapshot> {
+    this.guard();
     const baseUrl = isTestnet ? TESTNET_BASE_URL : MAINNET_BASE_URL;
     const timestamp = Date.now();
     const query = `timestamp=${timestamp}&recvWindow=5000`;
     const signature = this.sign(query, apiSecret);
 
-    const res = await fetch(
+    const res = await this.fetchOrTransient(
       `${baseUrl}/api/v3/account?${query}&signature=${signature}`,
       {
         headers: { 'X-MBX-APIKEY': apiKey },
@@ -57,6 +113,7 @@ export class BinanceAccountClientService {
     );
 
     if (!res.ok) {
+      await this.checkLimits(res);
       const body = await res.text().catch(() => '');
       let reason = body;
       try {
@@ -95,55 +152,55 @@ export class BinanceAccountClientService {
   // Historial de operaciones de un símbolo puntual (p.ej. BTCUSDT) para
   // calcular costo base real (ver BinanceAccountSyncService). A
   // diferencia de getAccountSnapshot, un fallo acá NO rompe el sync
-  // completo — se trata como "sin historial para este símbolo" (devuelve
-  // []), porque puede pasar por motivos normales (el usuario nunca operó
-  // ese par en Binance, solo depositó el activo) y no tiene sentido
-  // tumbar la sincronización de los demás activos por eso.
+  // completo si Binance contesta que el par no aplica: se trata como "sin
+  // historial para este símbolo" (devuelve []). Pero si Binance está caído o
+  // limitó las consultas, se corta el sync: tratarlo como "sin historial"
+  // fijaría un precio de compra equivocado.
   async getMyTrades(
     apiKey: string,
     apiSecret: string,
     symbol: string,
     isTestnet = false,
   ): Promise<BinanceTrade[]> {
+    this.guard();
     const baseUrl = isTestnet ? TESTNET_BASE_URL : MAINNET_BASE_URL;
     const timestamp = Date.now();
     const query = `symbol=${symbol}&timestamp=${timestamp}&recvWindow=5000`;
     const signature = this.sign(query, apiSecret);
 
-    try {
-      const res = await fetch(
-        `${baseUrl}/api/v3/myTrades?${query}&signature=${signature}`,
-        { headers: { 'X-MBX-APIKEY': apiKey } },
-      );
-      if (!res.ok) return [];
-
-      const data = (await res.json()) as Array<{
-        orderId: number;
-        price: string;
-        qty: string;
-        quoteQty: string;
-        commission: string;
-        commissionAsset: string;
-        time: number;
-        isBuyer: boolean;
-      }>;
-
-      return data
-        .map((t) => ({
-          orderId: t.orderId,
-          price: Number(t.price),
-          qty: Number(t.qty),
-          quoteQty: Number(t.quoteQty),
-          commission: Number(t.commission),
-          commissionAsset: t.commissionAsset,
-          time: t.time,
-          isBuyer: t.isBuyer,
-        }))
-        .sort((a, b) => a.time - b.time);
-    } catch {
+    const res = await this.fetchOrTransient(
+      `${baseUrl}/api/v3/myTrades?${query}&signature=${signature}`,
+      { headers: { 'X-MBX-APIKEY': apiKey } },
+    );
+    if (!res.ok) {
+      await this.checkLimits(res);
       return [];
     }
+    const data = (await res.json()) as Array<{
+      orderId: number;
+      price: string;
+      qty: string;
+      quoteQty: string;
+      commission: string;
+      commissionAsset: string;
+      time: number;
+      isBuyer: boolean;
+    }>;
+
+    return data
+      .map((t) => ({
+        orderId: t.orderId,
+        price: Number(t.price),
+        qty: Number(t.qty),
+        quoteQty: Number(t.quoteQty),
+        commission: Number(t.commission),
+        commissionAsset: t.commissionAsset,
+        time: t.time,
+        isBuyer: t.isBuyer,
+      }))
+      .sort((a, b) => a.time - b.time);
   }
+
   // Llamada firmada genérica para los endpoints /sapi de Binance (fondos,
   // Simple Earn). Tira un Error con el motivo si Binance la rechaza.
   private async signedSapi<T>(
@@ -153,6 +210,7 @@ export class BinanceAccountClientService {
     apiKey: string,
     apiSecret: string,
   ): Promise<T> {
+    this.guard();
     const query = new URLSearchParams({
       ...Object.fromEntries(
         Object.entries(params).map(([k, v]) => [k, String(v)]),
@@ -162,11 +220,12 @@ export class BinanceAccountClientService {
     }).toString();
     const signature = this.sign(query, apiSecret);
 
-    const res = await fetch(
+    const res = await this.fetchOrTransient(
       `${MAINNET_BASE_URL}${path}?${query}&signature=${signature}`,
       { method, headers: { 'X-MBX-APIKEY': apiKey } },
     );
     if (!res.ok) {
+      await this.checkLimits(res);
       const body = await res.text().catch(() => '');
       throw new Error(`Binance respondió ${res.status} en ${path}: ${body}`);
     }
@@ -198,7 +257,8 @@ export class BinanceAccountClientService {
           total: Number(r.free) + Number(r.locked) + Number(r.freeze),
         }))
         .filter((b) => b.total > 0);
-    } catch {
+    } catch (err) {
+      if (err instanceof BinanceRateLimitError) throw err;
       return null;
     }
   }
@@ -246,7 +306,8 @@ export class BinanceAccountClientService {
         '/sapi/v1/simple-earn/flexible/position',
       );
       for (const r of flexible) add(r.asset, Number(r.totalAmount));
-    } catch {
+    } catch (err) {
+      if (err instanceof BinanceRateLimitError) throw err;
       return null;
     }
 
@@ -263,8 +324,9 @@ export class BinanceAccountClientService {
   }
 
   // --- Entradas de monedas sin trade (para fijar su precio de compra) ---
-  // Cada una devuelve [] si Binance falla o la key no tiene permiso: es
-  // información extra, nunca rompe el sync.
+  // Si la key no tiene permiso para una fuente, esa fuente se omite. Si
+  // Binance está caído o limitó las consultas, el error sube y el sync se
+  // corta: guardar un precio con datos incompletos lo dejaría fijo mal.
 
   // Depósitos acreditados (status=1). Binance acepta ventanas de 90 días.
   async getDeposits(
@@ -304,7 +366,8 @@ export class BinanceAccountClientService {
             price: null,
           });
         }
-      } catch {
+      } catch (err) {
+        if (isRetryable(err)) throw err;
         return out;
       }
     }
@@ -356,7 +419,8 @@ export class BinanceAccountClientService {
                 : null,
           });
         }
-      } catch {
+      } catch (err) {
+        if (isRetryable(err)) throw err;
         return out;
       }
     }
@@ -395,25 +459,41 @@ export class BinanceAccountClientService {
           time: r.createTime,
           price: USD_LIKE.has(r.fiatCurrency) ? Number(r.price) : null,
         }));
-    } catch {
+    } catch (err) {
+      if (isRetryable(err)) throw err;
       return [];
     }
   }
 
   // Precio contra USDT en un momento dado (vela de 1 minuto, endpoint
-  // público). null si no hay par o Binance no responde.
+  // público; primero el espejo de datos de mercado, que tiene sus propios
+  // límites). null si la moneda no tiene par contra USDT; si Binance está
+  // caído o limitado, tira el error (no se fija un precio sin dato).
   async getPriceAt(symbol: string, time: number): Promise<number | null> {
-    try {
-      const res = await fetch(
-        `${MAINNET_BASE_URL}/api/v3/klines?symbol=${symbol}USDT&interval=1m&startTime=${time}&limit=1`,
-      );
-      if (!res.ok) return null;
-      const rows = (await res.json()) as Array<[number, string]>;
-      const open = rows[0] ? Number(rows[0][1]) : NaN;
-      return Number.isFinite(open) && open > 0 ? open : null;
-    } catch {
-      return null;
+    const path = `/api/v3/klines?symbol=${symbol}USDT&interval=1m&startTime=${time}&limit=1`;
+    let lastError: unknown = null;
+    for (const base of [MARKET_DATA_BASE_URL, MAINNET_BASE_URL]) {
+      try {
+        const res = await this.fetchOrTransient(`${base}${path}`);
+        if (!res.ok) {
+          // Un límite del espejo público no bloquea la API privada.
+          if (base === MARKET_DATA_BASE_URL && res.status >= 418) {
+            lastError = new BinanceTransientError(
+              `Binance respondió ${res.status}`,
+            );
+            continue;
+          }
+          await this.checkLimits(res);
+          return null; // 400: sin par contra USDT.
+        }
+        const rows = (await res.json()) as Array<[number, string]>;
+        const open = rows[0] ? Number(rows[0][1]) : NaN;
+        return Number.isFinite(open) && open > 0 ? open : null;
+      } catch (err) {
+        lastError = err;
+      }
     }
+    throw lastError;
   }
 }
 
@@ -423,4 +503,10 @@ export interface AcquisitionRecord {
   time: number;
   // Precio en USDT si la transacción lo trae; si no, se busca por fecha.
   price: number | null;
+}
+
+function isRetryable(err: unknown): boolean {
+  return (
+    err instanceof BinanceRateLimitError || err instanceof BinanceTransientError
+  );
 }

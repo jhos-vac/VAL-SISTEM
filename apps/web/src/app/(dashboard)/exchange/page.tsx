@@ -117,47 +117,60 @@ export default function ExchangePage() {
         ) : (
           <ul className="flex flex-col gap-3">
             {accounts.map((acc) => (
-              <li key={acc.id} className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="font-medium">{acc.label}</p>
-                  <p className="text-sm text-text-secondary">
-                    {acc.exchange} · {maskApiKey(acc.apiKeyLast4)}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <SyncBadge status={acc.status} />
-                    {acc.lastSyncedAt ? (
-                      <p className="text-xs text-text-secondary">
-                        Última sync: {new Date(acc.lastSyncedAt).toLocaleString("es-EC")}
-                      </p>
-                    ) : null}
+              <li key={acc.id} className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium">{acc.label}</p>
+                    <p className="text-sm text-text-secondary">
+                      {acc.exchange} · {maskApiKey(acc.apiKeyLast4)}
+                    </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => syncMutation.mutate(acc.id)}
-                    disabled={syncMutation.isPending}
-                    className="rounded-md border border-border-hairline px-2 py-1 text-xs disabled:opacity-50"
-                  >
-                    Sincronizar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (
-                        confirm(
-                          `¿Desconectar "${acc.label}"? Se borran sus posiciones sincronizadas (tus operaciones manuales no se tocan).`,
-                        )
-                      ) {
-                        disconnectMutation.mutate(acc.id);
-                      }
-                    }}
-                    disabled={disconnectMutation.isPending}
-                    className="rounded-md border border-border-hairline px-2 py-1 text-xs text-status-critical disabled:opacity-50"
-                  >
-                    Desconectar
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <SyncBadge status={acc.status} />
+                      {acc.lastSyncedAt ? (
+                        <p className="text-xs text-text-secondary">
+                          Última sync: {new Date(acc.lastSyncedAt).toLocaleString("es-EC")}
+                        </p>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => syncMutation.mutate(acc.id)}
+                      disabled={syncMutation.isPending}
+                      className="rounded-md border border-border-hairline px-2 py-1 text-xs disabled:opacity-50"
+                    >
+                      Sincronizar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `¿Desconectar "${acc.label}"? Se borran sus posiciones sincronizadas (tus operaciones manuales no se tocan).`,
+                          )
+                        ) {
+                          disconnectMutation.mutate(acc.id);
+                        }
+                      }}
+                      disabled={disconnectMutation.isPending}
+                      className="rounded-md border border-border-hairline px-2 py-1 text-xs text-status-critical disabled:opacity-50"
+                    >
+                      Desconectar
+                    </button>
+                  </div>
                 </div>
+                {acc.lastSyncMessage ? (
+                  <p
+                    className={`rounded-md px-3 py-2 text-xs ${
+                      acc.status === "failed"
+                        ? "bg-status-critical/10 text-status-critical"
+                        : "bg-surface-raised text-text-secondary"
+                    }`}
+                  >
+                    {acc.lastSyncMessage}
+                  </p>
+                ) : null}
               </li>
             ))}
           </ul>

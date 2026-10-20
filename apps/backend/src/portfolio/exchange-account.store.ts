@@ -17,7 +17,7 @@ export interface StoredExchangeAccount {
 }
 
 export interface ExchangeAccountWithLastSync extends StoredExchangeAccount {
-  lastSync: { status: string; finishedAt: Date } | null;
+  lastSync: { status: string; finishedAt: Date; message: string | null } | null;
 }
 
 export interface NewExchangeAccount {
@@ -96,7 +96,12 @@ export class ExchangeAccountStore {
     const syncs = await this.prisma.syncHistory.findMany({
       where: { exchangeAccountId: { in: accounts.map((a) => a.id) } },
       orderBy: { startedAt: 'desc' },
-      select: { exchangeAccountId: true, status: true, finishedAt: true },
+      select: {
+        exchangeAccountId: true,
+        status: true,
+        finishedAt: true,
+        message: true,
+      },
     });
     const lastByAccount = new Map<string, (typeof syncs)[number]>();
     for (const sync of syncs) {
@@ -110,7 +115,11 @@ export class ExchangeAccountStore {
       return {
         ...a,
         lastSync: last
-          ? { status: last.status, finishedAt: last.finishedAt }
+          ? {
+              status: last.status,
+              finishedAt: last.finishedAt,
+              message: last.message,
+            }
           : null,
       };
     });

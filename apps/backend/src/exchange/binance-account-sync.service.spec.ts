@@ -211,6 +211,21 @@ describe('BinanceAccountSyncService.syncAccount', () => {
     );
   });
 
+  it('si Binance falla a mitad de camino no se guarda nada (ni precios fijados)', async () => {
+    const { service, binance, ledger, accounts } = setup();
+    binance.getMyTrades.mockRejectedValueOnce(
+      new Error('Binance respondió 503'),
+    );
+    await expect(service.syncAccount(account)).resolves.toMatchObject({
+      status: 'failed',
+    });
+    expect(ledger.replaceExchangeSnapshot).not.toHaveBeenCalled();
+    expect(accounts.recordSync).toHaveBeenCalledWith(
+      'acc-1',
+      expect.objectContaining({ status: 'failed' }) as unknown,
+    );
+  });
+
   it('si ya hay un sync en curso de la cuenta, devuelve skipped sin registrar', async () => {
     const { service, accounts } = setup('busy');
     await expect(service.syncAccount(account)).resolves.toMatchObject({

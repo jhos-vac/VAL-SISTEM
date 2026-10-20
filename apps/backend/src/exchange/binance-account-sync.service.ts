@@ -73,6 +73,10 @@ export class BinanceAccountSyncService {
     skipped: number;
   }> {
     if (this.runningAll) return { synced: 0, failed: 0, skipped: 0 };
+    // Con la IP limitada por Binance no se insiste: alarga el bloqueo.
+    if (this.binanceClient.isRateLimited()) {
+      return { synced: 0, failed: 0, skipped: 0 };
+    }
     this.runningAll = true;
     try {
       const counts = { synced: 0, failed: 0, skipped: 0 };
@@ -410,18 +414,14 @@ export class BinanceAccountSyncService {
       this.binanceClient.getFiatBuys(apiKey, apiSecret, since),
     ]);
     const bySymbol = new Map<string, Acquisition[]>();
-    // Tope de consultas de precio histórico por sync (endpoint público).
-    const MAX_LOOKUPS = 150;
-    let lookups = 0;
     const records = [...deposits, ...converts, ...fiat]
       .filter((r) => symbols.has(r.asset) && r.quantity > 0)
       .sort((a, b) => b.time - a.time);
     for (const r of records) {
-      let price = r.price;
-      if (price === null && lookups < MAX_LOOKUPS) {
-        lookups++;
-        price = await this.binanceClient.getPriceAt(r.asset, r.time);
-      }
+      // Si Binance falla acá, el error corta el sync: mejor reintentar que
+      // fijar un precio con datos incompletos.
+      const price =
+        r.price ?? (await this.binanceClient.getPriceAt(r.asset, r.time));
       if (price === null) continue;
       const list = bySymbol.get(r.asset) ?? [];
       list.push({ quantity: r.quantity, time: r.time, price });

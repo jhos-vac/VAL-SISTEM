@@ -23,6 +23,8 @@ export interface ExchangeAccountDto {
   apiKeyLast4: string;
   status: 'pending' | 'completed' | 'failed';
   lastSyncedAt: string | null;
+  // Resultado de la última sincronización (el motivo, si falló).
+  lastSyncMessage: string | null;
 }
 
 export interface ConnectExchangeAccountResult extends ExchangeAccountDto {
@@ -90,6 +92,7 @@ export class ExchangeService {
       apiKeyLast4: dto.apiKey.slice(-4),
       status: syncResult.status === 'skipped' ? 'pending' : syncResult.status,
       lastSyncedAt: new Date().toISOString(),
+      lastSyncMessage: syncResult.message,
       warning,
       syncMessage: syncResult.message,
     };
@@ -116,6 +119,7 @@ export class ExchangeService {
           (account.lastSync?.status as 'completed' | 'failed' | undefined) ??
           'pending',
         lastSyncedAt: account.lastSync?.finishedAt.toISOString() ?? null,
+        lastSyncMessage: account.lastSync?.message ?? null,
       };
     });
   }

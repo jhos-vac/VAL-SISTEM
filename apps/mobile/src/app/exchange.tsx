@@ -70,6 +70,9 @@ export default function ExchangeScreen() {
               ? `Última sincronización: ${new Date(a.lastSyncedAt).toLocaleString('es-EC')}`
               : 'Todavía no se sincronizó'}
           </Muted>
+          {a.lastSyncMessage ? (
+            a.status === 'failed' ? <ErrorText>{a.lastSyncMessage}</ErrorText> : <Muted style={{ fontSize: 13 }}>{a.lastSyncMessage}</Muted>
+          ) : null}
           <Button
             title="Sincronizar ahora"
             variant="secondary"

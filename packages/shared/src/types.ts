@@ -36,6 +36,8 @@ export interface ExchangeAccount {
   apiKeyLast4: string;
   status: SyncStatus;
   lastSyncedAt: string | null;
+  // Resultado de la última sincronización (el motivo, si falló).
+  lastSyncMessage?: string | null;
 }
 
 export interface Portfolio {
