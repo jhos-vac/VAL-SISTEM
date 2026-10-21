@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DCA_FREQUENCY_LABELS, formatCurrency, type DcaFrequency } from '@val-sistem/shared';
 import { Body, Button, Card, Chip, ErrorText, Muted, Row, Screen, TextField } from '@/components/ui';
@@ -25,8 +25,10 @@ function purchasesWithin(start: Date, frequency: DcaFrequency, months: number): 
   return n;
 }
 
-// Nuevo plan DCA con proyección en vivo.
+// Nuevo plan DCA con proyección en vivo. Puede venir precargado desde una
+// meta (moneda, monto semanal y fecha de fin).
 export default function NewDcaScreen() {
+  const params = useLocalSearchParams<{ asset?: string; amount?: string; endDate?: string }>();
   const queryClient = useQueryClient();
   const { portfolio } = useActivePortfolio();
   const currency = portfolio?.baseCurrency ?? 'USD';
@@ -42,8 +44,9 @@ export default function NewDcaScreen() {
       { label: '1° del mes', date: iso(new Date(today.getFullYear(), today.getMonth() + 1, 1)) },
     ];
   }, []);
-  const [assetSymbol, setAssetSymbol] = useState<string | null>(null);
-  const [amount, setAmount] = useState('50');
+  const [assetSymbol, setAssetSymbol] = useState<string | null>(params.asset || null);
+  const [amount, setAmount] = useState(params.amount || '50');
+  const endDate = params.endDate || undefined;
   const [frequency, setFrequency] = useState<DcaFrequency>('weekly');
   const [startDate, setStartDate] = useState(presets[0].date);
 
@@ -65,6 +68,7 @@ export default function NewDcaScreen() {
         amount: amountNumber,
         frequency,
         startDate: start.toISOString(),
+        ...(endDate ? { endDate } : {}),
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['dca-plans'] });
@@ -108,6 +112,12 @@ export default function NewDcaScreen() {
           <Chip key={p.label} label={p.label} selected={startDate === p.date} onPress={() => setStartDate(p.date)} />
         ))}
       </View>
+
+      {endDate ? (
+        <Muted style={{ fontSize: 13 }}>
+          Plan sugerido por tu meta: termina el {new Date(endDate).toLocaleDateString('es-EC')}.
+        </Muted>
+      ) : null}
 
       <Card>
         <SectionTitle>Proyección</SectionTitle>

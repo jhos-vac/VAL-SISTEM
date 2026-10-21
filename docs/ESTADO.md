@@ -232,6 +232,12 @@ Diferencias del sync de Binance (`computeCostBasisFromTrades`):
   últimos 90 días (valor del portafolio o de la moneda, o su cantidad). Da el
   ritmo por mes, la fecha estimada y si llega a tiempo. No aplica a metas de
   precio. Hace falta al menos una semana de historia.
+- Gráfico de los últimos 90 días de lo que mide la meta (valor, %, cantidad
+  o precio), con el objetivo punteado; hitos de 25, 50 y 75 %; las
+  cumplidas van en su propia sección.
+- Plan sugerido: con fecha límite, cuánto comprar por semana para cubrir lo
+  que falta (sin contar el mercado), con un botón que crea el plan DCA hasta
+  esa fecha.
 
 ## Panel de administración
 

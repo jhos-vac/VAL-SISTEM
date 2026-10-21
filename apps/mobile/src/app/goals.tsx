@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, Pressable, View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -14,6 +14,7 @@ import {
 } from '@val-sistem/shared';
 import { Body, Button, Card, ErrorText, Loading, Muted, Row, Screen } from '@/components/ui';
 import { ProgressBar } from '@/components/plan';
+import { GoalChart, GoalMilestones, GoalPlanSuggestion } from '@/components/GoalExtras';
 import { useActivePortfolio } from '@/hooks/useActivePortfolio';
 import { deleteGoal, fetchGoals } from '@/lib/plan-clients';
 import { radius, spacing, useTheme } from '@/lib/theme';
@@ -33,7 +34,25 @@ export default function GoalsScreen() {
     mutationFn: deleteGoal,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['goals'] }),
   });
-  const achieved = goals.data?.filter((g) => g.progress.status === 'achieved').length ?? 0;
+  const [showAchieved, setShowAchieved] = useState(false);
+  const achievedGoals = goals.data?.filter((g) => g.progress.status === 'achieved') ?? [];
+  const activeGoals = goals.data?.filter((g) => g.progress.status !== 'achieved') ?? [];
+  const achieved = achievedGoals.length;
+  const renderGoal = (g: Goal) => (
+    <GoalCard
+      key={g.id}
+      goal={g}
+      currency={portfolio?.baseCurrency ?? 'USD'}
+      canPlan={!isAggregate}
+      onEdit={() => router.push({ pathname: '/goal-new', params: { id: g.id } })}
+      onDelete={() =>
+        Alert.alert('Eliminar meta', `¿Eliminar “${g.name}”?`, [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Eliminar', style: 'destructive', onPress: () => remove.mutate(g.id) },
+        ])
+      }
+    />
+  );
 
   return (
     <Screen onRefresh={() => void goals.refetch()} refreshing={goals.isRefetching}>
@@ -54,20 +73,20 @@ export default function GoalsScreen() {
           <Muted>Todavía no tienes metas. Por ejemplo: “llegar a 10.000 USD”, “tener 0,5 BTC” o “ETH a 4.000”.</Muted>
         </Card>
       ) : null}
-      {goals.data?.map((g) => (
-        <GoalCard
-          key={g.id}
-          goal={g}
-          currency={portfolio?.baseCurrency ?? 'USD'}
-          onEdit={() => router.push({ pathname: '/goal-new', params: { id: g.id } })}
-          onDelete={() =>
-            Alert.alert('Eliminar meta', `¿Eliminar “${g.name}”?`, [
-              { text: 'Cancelar', style: 'cancel' },
-              { text: 'Eliminar', style: 'destructive', onPress: () => remove.mutate(g.id) },
-            ])
-          }
-        />
-      ))}
+      {activeGoals.map(renderGoal)}
+      {achievedGoals.length > 0 ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: showAchieved }}
+          onPress={() => setShowAchieved(!showAchieved)}
+          hitSlop={8}
+        >
+          <Muted style={{ fontWeight: '600' }}>
+            {showAchieved ? '▾' : '▸'} Cumplidas ({achievedGoals.length})
+          </Muted>
+        </Pressable>
+      ) : null}
+      {showAchieved ? achievedGoals.map(renderGoal) : null}
     </Screen>
   );
 }
@@ -75,11 +94,13 @@ export default function GoalsScreen() {
 function GoalCard({
   goal,
   currency,
+  canPlan,
   onEdit,
   onDelete,
 }: {
   goal: Goal;
   currency: string;
+  canPlan: boolean;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -121,6 +142,14 @@ function GoalCard({
           <Muted>{Math.round(p.progress * 100)}%</Muted>
         </Row>
         <ProgressBar value={p.progress} color={color} label={`Progreso de ${goal.name}`} />
+        {p.status === 'achieved' ? (
+          <Muted style={{ fontSize: 13, fontWeight: '700', color: t.pnlUp }}>¡Meta cumplida!</Muted>
+        ) : (
+          <>
+            <GoalChart goal={goal} color={color} format={metric} />
+            {goal.kind !== 'target_price' ? <GoalMilestones goal={goal} /> : null}
+          </>
+        )}
         {goal.kind === 'target_price' && goal.completedAt ? (
           <Muted style={{ fontSize: 12, color: t.pnlUp }}>
             Tocó el precio el {new Date(goal.completedAt).toLocaleDateString('es-EC')}.
@@ -176,6 +205,7 @@ function GoalCard({
           </Muted>
         </View>
       ) : null}
+      {canPlan ? <GoalPlanSuggestion goal={goal} money={money} /> : null}
       <View style={{ flexDirection: 'row', gap: spacing.sm }}>
         <View style={{ flex: 1 }}>
           <Button title="Editar" variant="secondary" icon="create-outline" onPress={onEdit} />

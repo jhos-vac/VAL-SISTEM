@@ -241,3 +241,38 @@ export function projectGoal(
     basisDays: Math.round(basisDays),
   };
 }
+
+// --- Historia para el gráfico de progreso ---
+
+// Precio por día de una moneda a partir de su valor y cantidad en los
+// snapshots (solo los días en que se tenía y había precio).
+export function priceSeries(
+  values: SeriesPoint[],
+  quantities: SeriesPoint[],
+): SeriesPoint[] {
+  const qtyByDay = new Map(
+    quantities.map((q) => [q.date.toISOString().slice(0, 10), q.value]),
+  );
+  return values.flatMap((v) => {
+    const qty = qtyByDay.get(v.date.toISOString().slice(0, 10)) ?? 0;
+    return qty > 0 && v.value > 0
+      ? [{ date: v.date, value: v.value / qty }]
+      : [];
+  });
+}
+
+// Serie diaria (YYYY-MM-DD) de lo que mide la meta, terminando con el valor
+// de hoy para que coincida con el progreso que se muestra.
+export function goalHistory(
+  series: SeriesPoint[],
+  current: number,
+  now: Date,
+): { date: string; value: number }[] {
+  const today = now.toISOString().slice(0, 10);
+  const byDay = new Map<string, number>();
+  for (const p of series) byDay.set(p.date.toISOString().slice(0, 10), p.value);
+  byDay.set(today, current);
+  return [...byDay.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, value]) => ({ date, value }));
+}

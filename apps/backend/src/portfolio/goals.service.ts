@@ -8,6 +8,8 @@ import { MarketService } from '../market/market.service';
 import { PortfolioService } from './portfolio.service';
 import {
   computeGoalProgress,
+  goalHistory,
+  priceSeries,
   priceDirectionFor,
   projectGoal,
   type GoalContext,
@@ -42,6 +44,8 @@ export interface GoalDto {
   // A este ritmo, cuándo se cumple (null sin historia suficiente o en
   // metas de precio, que dependen del mercado).
   projection: GoalProjection | null;
+  // Lo que mide la meta, por día (últimos 90 días + hoy), para el gráfico.
+  history: { date: string; value: number }[];
 }
 
 interface GoalRow {
@@ -67,6 +71,7 @@ const PROJECTION_DAYS = 90;
 // valor (de los snapshots).
 interface PortfolioHistory {
   total: SeriesPoint[];
+  profitPercent: SeriesPoint[];
   assetValue: Map<string, SeriesPoint[]>;
   assetQuantity: Map<string, SeriesPoint[]>;
 }
@@ -222,10 +227,16 @@ export class GoalsService {
     for (const s of snapshots) {
       let h = out.get(s.portfolioId);
       if (!h) {
-        h = { total: [], assetValue: new Map(), assetQuantity: new Map() };
+        h = {
+          total: [],
+          profitPercent: [],
+          assetValue: new Map(),
+          assetQuantity: new Map(),
+        };
         out.set(s.portfolioId, h);
       }
       h.total.push({ date: s.snapshotDate, value: s.totalValue });
+      h.profitPercent.push({ date: s.snapshotDate, value: s.profitPercent });
       for (const item of s.items) {
         const push = (m: Map<string, SeriesPoint[]>, value: number) =>
           m.set(item.assetId, [
@@ -337,6 +348,26 @@ export class GoalsService {
         projection = projectGoal(series, current, target, now, goal.deadline);
       }
 
+      // Serie de lo que mide la meta (valor, %, cantidad o precio).
+      const assetValues = goal.assetId
+        ? (h?.assetValue.get(goal.assetId) ?? [])
+        : [];
+      const assetQuantities = goal.assetId
+        ? (h?.assetQuantity.get(goal.assetId) ?? [])
+        : [];
+      const metricSeries =
+        kind === 'target_value'
+          ? goal.assetId
+            ? assetValues
+            : (h?.total ?? [])
+          : kind === 'gain_percent'
+            ? goal.assetId
+              ? []
+              : (h?.profitPercent ?? [])
+            : kind === 'asset_quantity'
+              ? assetQuantities
+              : priceSeries(assetValues, assetQuantities);
+
       return {
         id: goal.id,
         portfolioId: goal.portfolioId,
@@ -353,6 +384,7 @@ export class GoalsService {
         createdAt: goal.createdAt.toISOString(),
         progress,
         projection,
+        history: goalHistory(metricSeries, progress.current, now),
       };
     });
 

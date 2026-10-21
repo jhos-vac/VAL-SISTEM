@@ -7,6 +7,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import { Chip, OptionCard } from "@/components/ui/Choice";
 import { AssetPicker } from "@/components/strategy/AssetPicker";
+import { GoalMilestones, GoalPlanSuggestion, GoalSparkline } from "@/components/goals/GoalExtras";
 import {
   defaultGoalName,
   formatCurrency,
@@ -48,8 +49,27 @@ export default function GoalsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["goals"] }),
   });
 
-  const achieved = goals?.filter((g) => g.progress.status === "achieved").length ?? 0;
+  const achievedGoals = goals?.filter((g) => g.progress.status === "achieved") ?? [];
+  const activeGoals = goals?.filter((g) => g.progress.status !== "achieved") ?? [];
+  const achieved = achievedGoals.length;
   const currency = portfolio?.baseCurrency ?? "USD";
+  const renderGoal = (g: Goal) =>
+    editingId === g.id ? (
+      <div key={g.id} className="md:col-span-2">
+        <GoalForm portfolioId={g.portfolioId} currency={currency} editing={g} onDone={() => setEditingId(null)} />
+      </div>
+    ) : (
+      <GoalCard
+        key={g.id}
+        goal={g}
+        currency={currency}
+        onEdit={() => {
+          setShowForm(false);
+          setEditingId(g.id);
+        }}
+        onDelete={() => remove.mutate(g.id)}
+      />
+    );
 
   return (
     <div className="flex flex-col gap-4">
@@ -106,31 +126,21 @@ export default function GoalsPage() {
           </div>
         </Card>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {goals.map((g) =>
-            editingId === g.id ? (
-              <div key={g.id} className="md:col-span-2">
-                <GoalForm
-                  portfolioId={g.portfolioId}
-                  currency={currency}
-                  editing={g}
-                  onDone={() => setEditingId(null)}
-                />
-              </div>
-            ) : (
-              <GoalCard
-                key={g.id}
-                goal={g}
-                currency={currency}
-                onEdit={() => {
-                  setShowForm(false);
-                  setEditingId(g.id);
-                }}
-                onDelete={() => remove.mutate(g.id)}
-              />
-            ),
+        <>
+          {activeGoals.length > 0 ? (
+            <div className="grid gap-3 md:grid-cols-2">{activeGoals.map(renderGoal)}</div>
+          ) : (
+            <p className="text-sm text-text-secondary">No tienes metas en curso.</p>
           )}
-        </div>
+          {achievedGoals.length > 0 ? (
+            <details className="group" open={activeGoals.length === 0}>
+              <summary className="cursor-pointer select-none text-sm font-medium text-text-secondary hover:text-foreground">
+                Cumplidas ({achievedGoals.length})
+              </summary>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">{achievedGoals.map(renderGoal)}</div>
+            </details>
+          ) : null}
+        </>
       )}
     </div>
   );
@@ -199,6 +209,9 @@ function GoalCard({
             <span className="font-semibold">{metric(p.current)}</span>
             <span className="text-text-secondary"> de {metric(p.target)}</span>
           </p>
+          {p.status === "achieved" ? (
+            <p className="text-xs font-medium text-status-good">¡Meta cumplida!</p>
+          ) : null}
           {goal.kind === "target_price" && goal.completedAt ? (
             <p className="text-xs text-status-good">
               Tocó el precio el {new Date(goal.completedAt).toLocaleDateString("es-EC")}.
@@ -206,6 +219,13 @@ function GoalCard({
           ) : null}
         </div>
       </div>
+
+      {p.status !== "achieved" ? (
+        <div className="mt-3 flex flex-col gap-2">
+          <GoalSparkline goal={goal} tone={tone} format={metric} />
+          {goal.kind !== "target_price" ? <GoalMilestones goal={goal} /> : null}
+        </div>
+      ) : null}
 
       {p.status === "in_progress" ? (
         <div className="mt-4 flex flex-col gap-3">
@@ -263,6 +283,7 @@ function GoalCard({
               {projection.text}
             </p>
           ) : null}
+          <GoalPlanSuggestion goal={goal} money={money} />
         </div>
       ) : null}
 

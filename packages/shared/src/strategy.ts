@@ -84,6 +84,8 @@ export interface Goal {
   createdAt: string;
   progress: GoalProgress;
   projection: GoalProjection | null;
+  // Lo que mide la meta por día (últimos 90 días + hoy), para el gráfico.
+  history: { date: string; value: number }[];
 }
 
 export interface RebalanceRow {

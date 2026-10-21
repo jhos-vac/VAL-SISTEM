@@ -68,3 +68,37 @@ export function projectionText(goal: Goal, money: Money): { text: string; tone: 
   if (p.onTime === false) return { text: `${when}: después de la fecha límite.`, tone: "warning" };
   return { text: `${when}.`, tone: "neutral" };
 }
+
+// --- Hitos ---
+
+export const GOAL_MILESTONES = [0.25, 0.5, 0.75] as const;
+
+// El hito más alto alcanzado (0.25, 0.5 o 0.75), o null.
+export function reachedMilestone(goal: Goal): number | null {
+  if (goal.progress.status === "achieved") return null;
+  const reached = GOAL_MILESTONES.filter((m) => goal.progress.progress >= m);
+  return reached.length > 0 ? reached[reached.length - 1]! : null;
+}
+
+// --- Plan de compras sugerido ---
+
+export interface SuggestedPlan {
+  // Monto por compra semanal (redondeado) y cantidad de compras hasta la
+  // fecha límite.
+  amountPerWeek: number;
+  purchases: number;
+  endDate: string;
+}
+
+// Cuánto comprar por semana para cubrir lo que falta antes de la fecha
+// límite, sin contar lo que suba o baje el mercado. Solo para metas en curso
+// con fecha que se cumplen aportando dinero (no las de precio).
+export function suggestedPlan(goal: Goal): SuggestedPlan | null {
+  const p = goal.progress;
+  if (goal.kind === "target_price" || p.status !== "in_progress") return null;
+  if (!goal.deadline || p.daysLeft === null || p.daysLeft <= 0 || p.remainingValue <= 0) return null;
+  const purchases = Math.max(1, Math.ceil(p.daysLeft / 7));
+  const raw = p.remainingValue / purchases;
+  const amountPerWeek = raw >= 100 ? Math.ceil(raw / 5) * 5 : Math.ceil(raw * 100) / 100;
+  return { amountPerWeek, purchases, endDate: goal.deadline };
+}

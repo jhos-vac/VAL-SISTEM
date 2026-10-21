@@ -1,5 +1,7 @@
 import {
   computeGoalProgress,
+  goalHistory,
+  priceSeries,
   priceDirectionFor,
   projectGoal,
   type GoalContext,
@@ -266,5 +268,36 @@ describe('projectGoal', () => {
 
   it('sin una semana de historia no proyecta', () => {
     expect(projectGoal(series.slice(-3), 4_000, 7_000, now, null)).toBeNull();
+  });
+});
+
+describe('historia del gráfico', () => {
+  it('precio por día = valor / cantidad, solo los días con cantidad', () => {
+    const values = [
+      { date: inDays(-2), value: 200 },
+      { date: inDays(-1), value: 0 },
+    ];
+    const qty = [
+      { date: inDays(-2), value: 2 },
+      { date: inDays(-1), value: 0 },
+    ];
+    expect(priceSeries(values, qty)).toEqual([
+      { date: inDays(-2), value: 100 },
+    ]);
+  });
+
+  it('termina con el valor de hoy (reemplaza el snapshot del día)', () => {
+    const h = goalHistory(
+      [
+        { date: inDays(-1), value: 10 },
+        { date: now, value: 11 },
+      ],
+      12,
+      now,
+    );
+    expect(h).toEqual([
+      { date: inDays(-1).toISOString().slice(0, 10), value: 10 },
+      { date: now.toISOString().slice(0, 10), value: 12 },
+    ]);
   });
 });
