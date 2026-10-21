@@ -27,8 +27,21 @@ export interface CreateGoalInput {
   kind: GoalKind;
   targetValue?: number;
   targetPercent?: number;
+  targetQuantity?: number;
+  targetPrice?: number;
   deadline?: string;
   assetSymbol?: string;
+}
+
+// Nombre, objetivo y fecha (null quita la fecha). El tipo y la moneda no
+// cambian.
+export interface UpdateGoalInput {
+  name?: string;
+  targetValue?: number;
+  targetPercent?: number;
+  targetQuantity?: number;
+  targetPrice?: number;
+  deadline?: string | null;
 }
 
 export function fetchGoals(portfolioId: string): Promise<Goal[]> {
@@ -38,6 +51,13 @@ export function fetchGoals(portfolioId: string): Promise<Goal[]> {
 export function createGoal(portfolioId: string, input: CreateGoalInput): Promise<Goal> {
   return requestWithAuth<Goal>(`/portfolios/${portfolioId}/goals`, {
     method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateGoal(goalId: string, input: UpdateGoalInput): Promise<Goal> {
+  return requestWithAuth<Goal>(`/goals/${goalId}`, {
+    method: "PATCH",
     body: JSON.stringify(input),
   });
 }

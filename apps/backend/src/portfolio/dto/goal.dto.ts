@@ -9,8 +9,19 @@ import {
   ValidateIf,
 } from 'class-validator';
 
-export const GOAL_KINDS = ['target_value', 'gain_percent'] as const;
+export const GOAL_KINDS = [
+  'target_value',
+  'gain_percent',
+  'asset_quantity',
+  'target_price',
+] as const;
 export type GoalKindCode = (typeof GOAL_KINDS)[number];
+
+// Tipos que siempre son de un activo.
+export const ASSET_GOAL_KINDS: readonly GoalKindCode[] = [
+  'asset_quantity',
+  'target_price',
+];
 
 export class CreateGoalDto {
   @IsString()
@@ -32,12 +43,27 @@ export class CreateGoalDto {
   @Min(0.01)
   targetPercent?: number;
 
+  // Requerido si kind = 'asset_quantity' (p.ej. 0.5 BTC).
+  @ValidateIf((o: CreateGoalDto) => o.kind === 'asset_quantity')
+  @IsNumber()
+  @Min(0.00000001)
+  targetQuantity?: number;
+
+  // Requerido si kind = 'target_price' (precio por unidad en USDT).
+  @ValidateIf((o: CreateGoalDto) => o.kind === 'target_price')
+  @IsNumber()
+  @Min(0.00000001)
+  targetPrice?: number;
+
   @IsOptional()
   @IsISO8601()
   deadline?: string;
 
-  // Meta de un solo activo dentro del portafolio (p.ej. "BTC +10 %").
-  @IsOptional()
+  // Meta de un solo activo (requerido en asset_quantity y target_price).
+  @ValidateIf(
+    (o: CreateGoalDto) =>
+      ASSET_GOAL_KINDS.includes(o.kind) || o.assetSymbol !== undefined,
+  )
   @IsString()
   @MaxLength(20)
   assetSymbol?: string;
@@ -58,6 +84,16 @@ export class UpdateGoalDto {
   @IsNumber()
   @Min(0.01)
   targetPercent?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0.00000001)
+  targetQuantity?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0.00000001)
+  targetPrice?: number;
 
   // null quita la fecha límite.
   @IsOptional()

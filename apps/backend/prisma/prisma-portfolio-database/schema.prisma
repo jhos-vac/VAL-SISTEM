@@ -188,6 +188,10 @@ model InvestmentGoal {
   targetQuantity Float?    @map("target_quantity")
   deadline       DateTime? @map("deadline")
   isCompleted    Boolean   @default(false) @map("is_completed")
+  // Metas de precio: si se espera que suba ("above") o baje ("below"), y
+  // cuándo se tocó el precio (desde ahí queda cumplida).
+  priceDirection String?   @map("price_direction")
+  completedAt    DateTime? @map("completed_at")
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @default(now()) @map("updated_at")
 

@@ -40,7 +40,11 @@ export interface AssetLots {
   untracked: UntrackedHolding[];
 }
 
-export type GoalKind = 'target_value' | 'gain_percent';
+// target_value: llegar a un valor · gain_percent: ganar un % ·
+// asset_quantity: juntar una cantidad de una moneda · target_price: que una
+// moneda llegue a un precio (hacia arriba o hacia abajo).
+export type GoalKind = 'target_value' | 'gain_percent' | 'asset_quantity' | 'target_price';
+export type PriceDirection = 'above' | 'below';
 export type GoalStatus = 'achieved' | 'in_progress' | 'expired';
 
 export interface GoalProgress {
@@ -54,6 +58,16 @@ export interface GoalProgress {
   neededPerMonth: number | null;
 }
 
+// A este ritmo (últimos 90 días), cuándo se cumple la meta.
+export interface GoalProjection {
+  // Cambio por mes de lo que mide la meta (valor, o cantidad de la moneda).
+  perMonth: number;
+  etaDate: string | null;
+  // Con fecha límite: si llega a tiempo a este ritmo.
+  onTime: boolean | null;
+  basisDays: number;
+}
+
 export interface Goal {
   id: string;
   portfolioId: string;
@@ -62,9 +76,14 @@ export interface Goal {
   assetSymbol: string | null;
   targetValue: number | null;
   targetPercent: number | null;
+  targetQuantity: number | null;
+  targetPrice: number | null;
+  priceDirection: PriceDirection | null;
   deadline: string | null;
+  completedAt: string | null;
   createdAt: string;
   progress: GoalProgress;
+  projection: GoalProjection | null;
 }
 
 export interface RebalanceRow {
@@ -126,6 +145,16 @@ export interface PublicPortfolio {
   composition: CompositionItem[];
   hasInvestment: boolean;
 }
+
+export const GOAL_KIND_LABELS: Record<GoalKind, string> = {
+  target_value: 'Llegar a un valor',
+  gain_percent: 'Ganar un %',
+  asset_quantity: 'Juntar una cantidad',
+  target_price: 'Precio objetivo',
+};
+
+// Tipos que siempre son de una moneda.
+export const ASSET_GOAL_KINDS: GoalKind[] = ['asset_quantity', 'target_price'];
 
 export const GOAL_STATUS_LABELS: Record<GoalStatus, string> = {
   achieved: 'Cumplida',

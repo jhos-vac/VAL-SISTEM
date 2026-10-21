@@ -6,3 +6,4 @@ export * from './allocation';
 export * from './position-sort';
 export * from './admin';
 export * from './review';
+export * from './goals-view';

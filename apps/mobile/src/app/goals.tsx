@@ -2,16 +2,25 @@ import { useState } from 'react';
 import { Alert, View } from 'react-native';
 import { router } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatCurrency, formatPercent, GOAL_STATUS_LABELS, type Goal } from '@val-sistem/shared';
+import {
+  formatCurrency,
+  formatGoalMetric,
+  formatPercent,
+  formatQuantity,
+  GOAL_STATUS_LABELS,
+  goalTargetText,
+  projectionText,
+  type Goal,
+} from '@val-sistem/shared';
 import { Body, Button, Card, ErrorText, Loading, Muted, Row, Screen } from '@/components/ui';
 import { ProgressBar } from '@/components/plan';
 import { useActivePortfolio } from '@/hooks/useActivePortfolio';
 import { deleteGoal, fetchGoals } from '@/lib/plan-clients';
-import { spacing, useTheme } from '@/lib/theme';
+import { radius, spacing, useTheme } from '@/lib/theme';
 
 const DAY_MS = 86_400_000;
 
-// Metas: progreso, avance contra tiempo y ritmo necesario.
+// Metas: progreso, avance contra tiempo, ritmo necesario y proyección.
 export default function GoalsScreen() {
   const queryClient = useQueryClient();
   const { portfolio, isAggregate } = useActivePortfolio();
@@ -34,15 +43,15 @@ export default function GoalsScreen() {
         </Muted>
       ) : null}
       {isAggregate ? (
-        <Muted>Vista General: se ven las metas de todos tus portafolios. Para crear una, elegí un portafolio.</Muted>
+        <Muted>Vista General: se ven las metas de todos tus portafolios. Para crear una, elige un portafolio.</Muted>
       ) : (
-        <Button title="Nueva meta" onPress={() => router.push('/goal-new')} />
+        <Button title="Nueva meta" icon="add" onPress={() => router.push('/goal-new')} />
       )}
       {goals.isLoading ? <Loading /> : null}
       {goals.error && !goals.data ? <ErrorText>{goals.error.message}</ErrorText> : null}
       {goals.data?.length === 0 ? (
         <Card>
-          <Muted>Todavía no tenés metas. Por ejemplo: “llegar a 10.000 USD” o “+10 % en BTC”.</Muted>
+          <Muted>Todavía no tienes metas. Por ejemplo: “llegar a 10.000 USD”, “tener 0,5 BTC” o “ETH a 4.000”.</Muted>
         </Card>
       ) : null}
       {goals.data?.map((g) => (
@@ -50,6 +59,7 @@ export default function GoalsScreen() {
           key={g.id}
           goal={g}
           currency={portfolio?.baseCurrency ?? 'USD'}
+          onEdit={() => router.push({ pathname: '/goal-new', params: { id: g.id } })}
           onDelete={() =>
             Alert.alert('Eliminar meta', `¿Eliminar “${g.name}”?`, [
               { text: 'Cancelar', style: 'cancel' },
@@ -62,44 +72,60 @@ export default function GoalsScreen() {
   );
 }
 
-function GoalCard({ goal, currency, onDelete }: { goal: Goal; currency: string; onDelete: () => void }) {
+function GoalCard({
+  goal,
+  currency,
+  onEdit,
+  onDelete,
+}: {
+  goal: Goal;
+  currency: string;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   const t = useTheme();
   const [now] = useState(() => Date.now());
   const money = (n: number) => formatCurrency(n, currency);
+  const metric = (n: number) => formatGoalMetric(goal.kind, n, money, goal.assetSymbol);
   const p = goal.progress;
-  const isValue = goal.kind === 'target_value';
   const color = p.status === 'achieved' ? t.pnlUp : p.status === 'expired' ? t.pnlDown : t.primary;
-  const timeProgress = goal.deadline
-    ? Math.min(
-        1,
-        Math.max(
-          0,
-          (now - new Date(goal.createdAt).getTime()) /
-            Math.max(DAY_MS, new Date(goal.deadline).getTime() - new Date(goal.createdAt).getTime()),
-        ),
-      )
-    : null;
+  const projection = projectionText(goal, money);
+  const timeProgress =
+    goal.deadline && goal.kind !== 'target_price'
+      ? Math.min(
+          1,
+          Math.max(
+            0,
+            (now - new Date(goal.createdAt).getTime()) /
+              Math.max(DAY_MS, new Date(goal.deadline).getTime() - new Date(goal.createdAt).getTime()),
+          ),
+        )
+      : null;
   const onTrack = timeProgress === null || p.progress >= timeProgress;
 
   return (
     <Card>
       <Row>
-        <Body style={{ fontWeight: '700', flex: 1 }}>{goal.name}</Body>
-        <Muted style={{ color }}>{GOAL_STATUS_LABELS[p.status]}</Muted>
+        <Body style={{ fontWeight: '700', flex: 1 }}>{goal.name || goalTargetText(goal, money)}</Body>
+        <Muted style={{ color, fontWeight: '600' }}>{GOAL_STATUS_LABELS[p.status]}</Muted>
       </Row>
       <Muted style={{ fontSize: 13 }}>
-        {goal.assetSymbol ? `${goal.assetSymbol} · ` : ''}
-        {isValue ? `Llegar a ${money(goal.targetValue ?? 0)}` : `Ganar ${formatPercent(goal.targetPercent ?? 0)}`}
+        {goalTargetText(goal, money)}
         {goal.deadline ? ` · hasta ${new Date(goal.deadline).toLocaleDateString('es-EC')}` : ''}
       </Muted>
       <View style={{ gap: spacing.xs, marginTop: spacing.sm }}>
         <Row>
           <Body style={{ fontVariant: ['tabular-nums'], fontWeight: '600' }}>
-            {isValue ? money(p.current) : formatPercent(p.current)}
+            {metric(p.current)} <Muted style={{ fontSize: 13 }}>de {metric(p.target)}</Muted>
           </Body>
           <Muted>{Math.round(p.progress * 100)}%</Muted>
         </Row>
         <ProgressBar value={p.progress} color={color} label={`Progreso de ${goal.name}`} />
+        {goal.kind === 'target_price' && goal.completedAt ? (
+          <Muted style={{ fontSize: 12, color: t.pnlUp }}>
+            Tocó el precio el {new Date(goal.completedAt).toLocaleDateString('es-EC')}.
+          </Muted>
+        ) : null}
         {timeProgress !== null && p.status === 'in_progress' ? (
           <>
             <Muted style={{ fontSize: 12 }}>Tiempo transcurrido {Math.round(timeProgress * 100)}%</Muted>
@@ -112,7 +138,18 @@ function GoalCard({ goal, currency, onDelete }: { goal: Goal; currency: string; 
       </View>
       {p.status === 'in_progress' ? (
         <View style={{ gap: 2, marginTop: spacing.xs }}>
-          <Muted style={{ fontSize: 13 }}>Falta {money(p.remainingValue)}</Muted>
+          {goal.kind === 'target_price' ? (
+            <Muted style={{ fontSize: 13 }}>
+              {goal.priceDirection === 'below' ? 'Tiene que bajar' : 'Tiene que subir'}{' '}
+              {formatPercent(Math.abs(p.current > 0 ? ((p.target - p.current) / p.current) * 100 : 0)).replace(/^\+/, '')}
+            </Muted>
+          ) : goal.kind === 'asset_quantity' ? (
+            <Muted style={{ fontSize: 13 }}>
+              Faltan {formatQuantity(Math.max(0, p.target - p.current))} {goal.assetSymbol} (≈ {money(p.remainingValue)})
+            </Muted>
+          ) : (
+            <Muted style={{ fontSize: 13 }}>Falta {money(p.remainingValue)}</Muted>
+          )}
           {p.neededPerMonth !== null ? (
             <Muted style={{ fontSize: 13 }}>
               Hace falta crecer {money(p.neededPerMonth)} por mes ({p.daysLeft} día(s))
@@ -120,7 +157,33 @@ function GoalCard({ goal, currency, onDelete }: { goal: Goal; currency: string; 
           ) : null}
         </View>
       ) : null}
-      <Button title="Eliminar" variant="secondary" onPress={onDelete} />
+      {projection ? (
+        <View
+          style={{
+            borderRadius: radius.md,
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.sm,
+            backgroundColor: t.surfaceRaised,
+          }}
+        >
+          <Muted
+            style={{
+              fontSize: 12,
+              color: projection.tone === 'good' ? t.pnlUp : projection.tone === 'warning' ? t.warning : t.textSecondary,
+            }}
+          >
+            {projection.text}
+          </Muted>
+        </View>
+      ) : null}
+      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+        <View style={{ flex: 1 }}>
+          <Button title="Editar" variant="secondary" icon="create-outline" onPress={onEdit} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Button title="Eliminar" variant="danger" onPress={onDelete} />
+        </View>
+      </View>
     </Card>
   );
 }

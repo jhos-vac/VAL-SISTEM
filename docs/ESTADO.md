@@ -222,6 +222,17 @@ Diferencias del sync de Binance (`computeCostBasisFromTrades`):
   desde su precio de compra, con el origen de ese precio.
 - Cada sync reconstruye las posiciones de la wallet (modo espejo).
 
+## Metas
+
+- Cuatro tipos: llegar a un valor, ganar un %, juntar una cantidad de una
+  moneda y precio objetivo (sube o baja según el precio al crearla; una vez
+  tocado queda cumplida, con `completed_at`).
+- Se pueden editar: nombre, objetivo y fecha. El tipo y la moneda no.
+- Proyección: recta de mínimos cuadrados sobre los snapshots diarios de los
+  últimos 90 días (valor del portafolio o de la moneda, o su cantidad). Da el
+  ritmo por mes, la fecha estimada y si llega a tiempo. No aplica a metas de
+  precio. Hace falta al menos una semana de historia.
+
 ## Panel de administración
 
 - Web `/admin`, visible solo con rol admin. El backend exige
