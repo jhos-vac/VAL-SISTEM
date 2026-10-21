@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -13,7 +13,7 @@ import {
   type NewAlertKind,
 } from "@val-sistem/shared";
 import { Card } from "@/components/ui/Card";
-import { Chip, OptionCard } from "@/components/ui/Choice";
+import { Chip, OptionCard, Segmented } from "@/components/ui/Choice";
 import { AssetPicker } from "@/components/strategy/AssetPicker";
 import {
   createAlert,
@@ -40,9 +40,20 @@ export default function AlertsPage() {
   );
 }
 
+type Tab = "list" | "new" | "history";
+
+// La pestaña vive en la URL (?tab=), así el botón "atrás" del navegador
+// vuelve a la anterior. ?asset= abre "Nuevo aviso" con la moneda elegida
+// (desde Seguimiento, con ?from=watchlist para ofrecer volver).
 function AlertsContent() {
   const params = useSearchParams();
+  const router = useRouter();
   const queryClient = useQueryClient();
+  const asset = params.get("asset");
+  const fromWatchlist = params.get("from") === "watchlist";
+  const tab = (params.get("tab") as Tab | null) ?? (asset ? "new" : "list");
+  const [justCreated, setJustCreated] = useState<{ id: string; text: string } | null>(null);
+
   const { data, isLoading } = useQuery({ queryKey: ["alerts"], queryFn: fetchAlerts });
   const setData = (next: AlertsOverview) => queryClient.setQueryData(["alerts"], next);
   const toggle = useMutation({
@@ -55,72 +66,146 @@ function AlertsContent() {
     onSuccess: setData,
   });
 
+  const goTo = (next: Tab) => {
+    if (next !== "list") setJustCreated(null);
+    router.push(`/alerts?tab=${next}${fromWatchlist ? "&from=watchlist" : ""}`);
+  };
+
+  const onCreated = (next: AlertsOverview) => {
+    const before = new Set((data?.rules ?? []).map((r) => r.id));
+    const created = next.rules.find((r) => !before.has(r.id));
+    setData(next);
+    setJustCreated(created ? { id: created.id, text: alertRuleText(created, money) } : null);
+    router.push(`/alerts?tab=list${fromWatchlist ? "&from=watchlist" : ""}`);
+  };
+
+  const active = data?.rules.filter((r) => r.isActive).length ?? 0;
+
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold">Avisos</h1>
-        <p className="mt-1 text-sm text-text-secondary">
-          Te avisamos en la campana de arriba y, si tienes la app en el celular, con una notificación.
-          Se revisan cada 5 minutos.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-lg font-semibold">Avisos</h1>
+          <p className="mt-1 text-sm text-text-secondary">
+            Te avisamos en la campana de arriba y, si tienes la app en el celular, con una notificación.
+            Se revisan cada 5 minutos.
+          </p>
+        </div>
+        <Segmented
+          label="Sección de avisos"
+          value={tab}
+          onChange={goTo}
+          options={[
+            { value: "list", label: data ? `Mis avisos (${active})` : "Mis avisos" },
+            { value: "new", label: "+ Nuevo aviso" },
+            { value: "history", label: "Historial" },
+          ]}
+        />
       </div>
 
-      <NewAlertForm initialAsset={params.get("asset")} onCreated={setData} />
+      {tab === "new" ? (
+        <NewAlertForm
+          key={asset ?? "new"}
+          initialAsset={asset}
+          onCreated={onCreated}
+          onCancel={() => (fromWatchlist ? router.push("/watchlist") : goTo("list"))}
+          backLabel={fromWatchlist ? "Volver a Seguimiento" : "Volver a mis avisos"}
+        />
+      ) : null}
 
-      <Card title="Tus avisos">
-        {isLoading || !data ? (
-          <p className="text-sm text-text-secondary">Cargando…</p>
-        ) : data.rules.length === 0 ? (
-          <p className="text-sm text-text-secondary">Todavía no creaste avisos.</p>
-        ) : (
-          <ul className="flex flex-col divide-y divide-border-hairline">
-            {data.rules.map((r) => (
-              <li key={r.id} className="flex flex-wrap items-center gap-3 py-2.5 text-sm">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={r.isActive}
-                    onChange={(e) => toggle.mutate({ id: r.id, isActive: e.target.checked })}
-                    aria-label={`Activar: ${alertRuleText(r, money)}`}
-                  />
-                </label>
-                <span className={`flex-1 ${r.isActive ? "" : "text-text-muted line-through"}`}>{alertRuleText(r, money)}</span>
-                {r.lastTriggeredAt ? (
-                  <span className="text-xs text-text-muted">
-                    Último aviso {new Date(r.lastTriggeredAt).toLocaleString("es-EC", { dateStyle: "short", timeStyle: "short" })}
-                  </span>
+      {tab === "list" ? (
+        <>
+          {justCreated ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-status-good/10 px-4 py-3 text-sm text-status-good">
+              <span>Aviso creado: {justCreated.text}</span>
+              <span className="flex gap-3">
+                <button type="button" onClick={() => goTo("new")} className="font-medium underline">
+                  Crear otro
+                </button>
+                {fromWatchlist ? (
+                  <Link href="/watchlist" className="font-medium underline">
+                    Volver a Seguimiento
+                  </Link>
                 ) : null}
+              </span>
+            </div>
+          ) : null}
+
+          <Card
+            title="Tus avisos"
+            action={
+              <button type="button" onClick={() => goTo("new")} className="text-xs font-medium text-primary">
+                + Nuevo aviso
+              </button>
+            }
+          >
+            {isLoading || !data ? (
+              <p className="text-sm text-text-secondary">Cargando…</p>
+            ) : data.rules.length === 0 ? (
+              <div className="flex flex-col items-start gap-3">
+                <p className="text-sm text-text-secondary">Todavía no creaste avisos.</p>
                 <button
                   type="button"
-                  onClick={() => remove.mutate(r.id)}
-                  className="text-xs text-text-secondary hover:text-status-critical"
+                  onClick={() => goTo("new")}
+                  className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white"
                 >
-                  Eliminar
+                  Crear mi primer aviso
                 </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+              </div>
+            ) : (
+              <ul className="flex flex-col divide-y divide-border-hairline">
+                {data.rules.map((r) => (
+                  <li
+                    key={r.id}
+                    className={`flex flex-wrap items-center gap-3 rounded-md py-2.5 text-sm ${
+                      justCreated?.id === r.id ? "bg-primary-soft px-2" : ""
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={r.isActive}
+                      onChange={(e) => toggle.mutate({ id: r.id, isActive: e.target.checked })}
+                      aria-label={`Activar: ${alertRuleText(r, money)}`}
+                    />
+                    <span className={`flex-1 ${r.isActive ? "" : "text-text-muted line-through"}`}>{alertRuleText(r, money)}</span>
+                    {r.lastTriggeredAt ? (
+                      <span className="text-xs text-text-muted">
+                        Último aviso {new Date(r.lastTriggeredAt).toLocaleString("es-EC", { dateStyle: "short", timeStyle: "short" })}
+                      </span>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => remove.mutate(r.id)}
+                      className="text-xs text-text-secondary hover:text-status-critical"
+                    >
+                      Eliminar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
 
-      <Card title="Avisos automáticos">
-        <div className="flex flex-col gap-3 text-sm">
-          <AutoToggle
-            title="Metas"
-            description="Cuando cumples una meta, llegas a un hito (25, 50 o 75 %) o vas atrasado para la fecha."
-            checked={data?.auto.goalEvents ?? true}
-            onChange={(enabled) => auto.mutate({ kind: "goal_events", enabled })}
-          />
-          <AutoToggle
-            title="Compras periódicas"
-            description="El día que toca una compra de tus planes."
-            checked={data?.auto.dcaDue ?? true}
-            onChange={(enabled) => auto.mutate({ kind: "dca_due", enabled })}
-          />
-        </div>
-      </Card>
+          <Card title="Avisos automáticos">
+            <div className="flex flex-col gap-3 text-sm">
+              <AutoToggle
+                title="Metas"
+                description="Cuando cumples una meta, llegas a un hito (25, 50 o 75 %) o vas atrasado para la fecha."
+                checked={data?.auto.goalEvents ?? true}
+                onChange={(enabled) => auto.mutate({ kind: "goal_events", enabled })}
+              />
+              <AutoToggle
+                title="Compras periódicas"
+                description="El día que toca una compra de tus planes."
+                checked={data?.auto.dcaDue ?? true}
+                onChange={(enabled) => auto.mutate({ kind: "dca_due", enabled })}
+              />
+            </div>
+          </Card>
+        </>
+      ) : null}
 
-      <NotificationHistory />
+      {tab === "history" ? <NotificationHistory /> : null}
     </div>
   );
 }
@@ -157,9 +242,13 @@ const KINDS: Array<{ kind: NewAlertKind; description: string }> = [
 function NewAlertForm({
   initialAsset,
   onCreated,
+  onCancel,
+  backLabel,
 }: {
   initialAsset: string | null;
   onCreated: (o: AlertsOverview) => void;
+  onCancel: () => void;
+  backLabel: string;
 }) {
   const [kind, setKind] = useState<NewAlertKind>("price");
   const [asset, setAsset] = useState<string | null>(initialAsset);
@@ -186,8 +275,9 @@ function NewAlertForm({
         ...(kind === "price" ? { repeat } : {}),
       }),
     onSuccess: (o) => {
-      onCreated(o);
       setThreshold("");
+      setAsset(null);
+      onCreated(o);
     },
   });
 
@@ -204,7 +294,14 @@ function NewAlertForm({
         : [3, 5, 10].map((v) => ({ label: `±${v} %`, value: v }));
 
   return (
-    <Card title="Nuevo aviso">
+    <Card
+      title="Nuevo aviso"
+      action={
+        <button type="button" onClick={onCancel} className="text-xs text-text-secondary hover:text-foreground">
+          ← {backLabel}
+        </button>
+      }
+    >
       <form
         className="flex flex-col gap-4 text-sm"
         onSubmit={(e) => {
@@ -290,13 +387,18 @@ function NewAlertForm({
         ) : null}
 
         {create.isError ? <p className="text-status-critical">{create.error.message}</p> : null}
-        <button
-          type="submit"
-          disabled={!valid || create.isPending}
-          className="self-start rounded-md bg-primary px-4 py-2 font-medium text-white disabled:opacity-50"
-        >
-          {create.isPending ? "Creando…" : "Crear aviso"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="submit"
+            disabled={!valid || create.isPending}
+            className="rounded-md bg-primary px-4 py-2 font-medium text-white disabled:opacity-50"
+          >
+            {create.isPending ? "Creando…" : "Crear aviso"}
+          </button>
+          <button type="button" onClick={onCancel} className="rounded-md border border-border-hairline px-4 py-2">
+            Cancelar
+          </button>
+        </div>
       </form>
     </Card>
   );

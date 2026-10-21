@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, Switch, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   alertRuleText,
@@ -37,6 +37,7 @@ export default function AlertsScreen() {
     onSuccess: setData,
   });
   const [creating, setCreating] = useState(!!params.asset);
+  const [created, setCreated] = useState<string | null>(null);
 
   return (
     <Screen onRefresh={() => void alerts.refetch()} refreshing={alerts.isRefetching}>
@@ -45,9 +46,35 @@ export default function AlertsScreen() {
         minutos.
       </Muted>
       {creating ? (
-        <NewAlert initialAsset={params.asset ?? null} onDone={() => setCreating(false)} onCreated={setData} />
+        <NewAlert
+          initialAsset={params.asset ?? null}
+          onDone={() => {
+            setCreating(false);
+            // La moneda precargada (desde Seguimiento) sirve una sola vez.
+            if (params.asset) router.setParams({ asset: '' });
+          }}
+          onCreated={(o, text) => {
+            setData(o);
+            setCreated(text);
+          }}
+        />
       ) : (
-        <Button title="Nuevo aviso" icon="add" onPress={() => setCreating(true)} />
+        <>
+          {created ? (
+            <Card variant="mint">
+              <Body style={{ fontWeight: '700' }}>Aviso creado</Body>
+              <Muted>{created}</Muted>
+            </Card>
+          ) : null}
+          <Button
+            title={created ? 'Crear otro aviso' : 'Nuevo aviso'}
+            icon="add"
+            onPress={() => {
+              setCreated(null);
+              setCreating(true);
+            }}
+          />
+        </>
       )}
 
       <SectionTitle>Tus avisos</SectionTitle>
@@ -135,9 +162,10 @@ function NewAlert({
 }: {
   initialAsset: string | null;
   onDone: () => void;
-  onCreated: (o: AlertsOverview) => void;
+  onCreated: (o: AlertsOverview, text: string) => void;
 }) {
   const t = useTheme();
+  const queryClient = useQueryClient();
   const [kind, setKind] = useState<NewAlertKind>('price');
   const [asset, setAsset] = useState<string | null>(initialAsset);
   const [portfolioId, setPortfolioId] = useState<string | null>(null);
@@ -161,7 +189,11 @@ function NewAlert({
         ...(kind === 'price' ? { repeat } : {}),
       }),
     onSuccess: (o) => {
-      onCreated(o);
+      const before = new Set(
+        (queryClient.getQueryData<AlertsOverview>(['alerts'])?.rules ?? []).map((r) => r.id),
+      );
+      const created = o.rules.find((r) => !before.has(r.id));
+      onCreated(o, created ? alertRuleText(created, money) : 'Listo.');
       onDone();
     },
   });

@@ -67,7 +67,7 @@ export default function WatchlistPage() {
                     </td>
                     <td className="py-2.5 text-right">
                       <div className="flex justify-end gap-3 text-xs">
-                        <Link href={`/alerts?asset=${i.assetSymbol}`} className="text-primary">
+                        <Link href={`/alerts?asset=${i.assetSymbol}&from=watchlist`} className="text-primary">
                           Crear aviso
                         </Link>
                         <button
