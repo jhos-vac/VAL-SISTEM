@@ -21,6 +21,11 @@ import type { DcaPlanDto } from './portfolio/strategy.service';
 import type { RebalancePlan } from './portfolio/strategy';
 import type { PublicPortfolioDto } from './portfolio/public-portfolios.service';
 import type { AdminService } from './admin/admin.service';
+import type {
+  AlertsOverviewDto,
+  NotificationDto,
+} from './alerts/alerts.service';
+import type { WatchlistItemDto } from './portfolio/watchlist.service';
 
 // Cómo viaja un DTO por JSON: las fechas llegan como string.
 type Json<T> = {
@@ -70,11 +75,14 @@ export type ApiContracts = [
   Expect<
     FitsDeep<AdminReturn<'listPublicPortfolios'>, Shared.AdminPublicPortfolio[]>
   >,
+  Expect<FitsDeep<AlertsOverviewDto, Shared.AlertsOverview>>,
+  Expect<Fits<NotificationDto, Shared.AppNotification>>,
+  Expect<Fits<WatchlistItemDto, Shared.WatchlistItem>>,
 ];
 
 describe('contratos API backend ↔ @val-sistem/shared', () => {
   it('se verifican en tiempo de compilación (ver ApiContracts)', () => {
-    const checked: ApiContracts['length'] = 18;
-    expect(checked).toBe(18);
+    const checked: ApiContracts['length'] = 21;
+    expect(checked).toBe(21);
   });
 });

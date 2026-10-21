@@ -7,3 +7,4 @@ export * from './position-sort';
 export * from './admin';
 export * from './review';
 export * from './goals-view';
+export * from './alerts';

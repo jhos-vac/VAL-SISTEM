@@ -14,13 +14,24 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import type { AuthenticatedUser } from '../auth/types/authenticated-user';
 import { AdminService } from './admin.service';
+import { AlertsEvaluatorService } from '../alerts/alerts-evaluator.service';
 import { ListUsersQueryDto, SetUserStatusDto } from './dto/admin.dto';
 
 // Todo el controlador exige el rol admin (RolesGuard global).
 @Controller('admin')
 @Roles('admin')
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly alerts: AlertsEvaluatorService,
+  ) {}
+
+  // Revisa los avisos ya (además del job de cada 5 min).
+  @Post('alerts/evaluate')
+  @HttpCode(HttpStatus.OK)
+  evaluateAlerts() {
+    return this.alerts.evaluateAll();
+  }
 
   @Get('overview')
   overview() {

@@ -170,4 +170,14 @@ export class SettingsService {
       twoFactorEnabled: saved.twoFactorEnabled,
     };
   }
+
+  // Usuarios (de los pedidos) que apagaron las notificaciones push.
+  async usersWithNotificationsOff(userIds: string[]): Promise<Set<string>> {
+    if (userIds.length === 0) return new Set();
+    const rows = await this.prisma.userSetting.findMany({
+      where: { userId: { in: userIds }, notificationsEnabled: false },
+      select: { userId: true },
+    });
+    return new Set(rows.map((r) => r.userId));
+  }
 }

@@ -143,6 +143,16 @@ export class StrategyService {
 
   // --- Planes de compra periódica (DCA) ---
 
+  // Usuarios con algún plan de compras activo (para el aviso "hoy toca").
+  async listUserIdsWithActiveDca(): Promise<string[]> {
+    const rows = await this.prisma.portfolio.findMany({
+      where: { dcaPlans: { some: { isActive: true } } },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+    return rows.map((r) => r.userId);
+  }
+
   async listDcaPlans(
     userId: string,
     portfolioId: string,

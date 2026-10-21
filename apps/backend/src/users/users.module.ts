@@ -15,6 +15,6 @@ import { UserPrismaModule } from '../prisma/prisma.module';
     AccountClosureService,
     UserAdminService,
   ],
-  exports: [AccountClosureService, UserAdminService],
+  exports: [AccountClosureService, UserAdminService, SettingsService],
 })
 export class UsersModule {}

@@ -189,3 +189,54 @@ model Webhook {
 
   @@map("webhooks")
 }
+
+// Reglas de aviso de un usuario (módulo alerts). Tipos:
+//  price_above / price_below: precio de una moneda (assetId, threshold).
+//  asset_move: una moneda se mueve más de threshold % en 24 h.
+//  portfolio_move: un portafolio (o todos, portfolioId null) se mueve más
+//    de threshold % en 24 h.
+//  strategy_drift: la estrategia de un portafolio se desvía más de
+//    threshold puntos.
+//  goal_events / dca_due: automáticas (metas y compras programadas); sin
+//    fila cuentan como activas, una fila con isActive=false las apaga.
+model AlertRule {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  kind            String
+  assetId         String?   @map("asset_id") @db.Uuid
+  portfolioId     String?   @map("portfolio_id") @db.Uuid
+  threshold       Float?
+  // price_*: true = avisa cada vez que cruza; false = una sola vez.
+  repeat          Boolean   @default(false)
+  isActive        Boolean   @default(true) @map("is_active")
+  // Si la condición se cumplía en la última revisión (para avisar solo al
+  // cruzar).
+  lastMet         Boolean   @default(false) @map("last_met")
+  lastTriggeredAt DateTime? @map("last_triggered_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @map("updated_at")
+
+  @@index([userId])
+  @@index([isActive, kind])
+  @@map("alert_rules")
+}
+
+// Notificaciones del centro de avisos (web y móvil). dedupeKey evita
+// repetir el mismo aviso (p.ej. "meta X cumplida" una sola vez).
+model Notification {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  kind       String
+  title      String
+  body       String
+  // Ruta de la app a la que lleva (p.ej. /goals).
+  link       String?
+  dedupeKey  String    @map("dedupe_key")
+  readAt     DateTime? @map("read_at")
+  pushedAt   DateTime? @map("pushed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}

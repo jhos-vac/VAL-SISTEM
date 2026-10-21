@@ -94,6 +94,16 @@ export class GoalsService {
     return this.withProgress(userId, goals);
   }
 
+  // Usuarios con alguna meta (para los avisos de metas).
+  async listUserIdsWithGoals(): Promise<string[]> {
+    const rows = await this.prisma.portfolio.findMany({
+      where: { investmentGoals: { some: {} } },
+      select: { userId: true },
+      distinct: ['userId'],
+    });
+    return rows.map((r) => r.userId);
+  }
+
   async create(
     userId: string,
     portfolioId: string,

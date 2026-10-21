@@ -1,3 +1,5 @@
+import { WatchlistService } from './watchlist.service';
+import { WatchlistController } from './watchlist.controller';
 import { PortfolioAdminService } from './portfolio-admin.service';
 import { Module } from '@nestjs/common';
 import { MarketModule } from '../market/market.module';
@@ -35,6 +37,7 @@ import { PublicPortfoliosController } from './public-portfolios.controller';
     GoalsController,
     StrategyController,
     PublicPortfoliosController,
+    WatchlistController,
   ],
   providers: [
     PortfolioService,
@@ -50,6 +53,7 @@ import { PublicPortfoliosController } from './public-portfolios.controller';
     StrategyService,
     PublicPortfoliosService,
     PortfolioAdminService,
+    WatchlistService,
   ],
   // API pública del módulo: lo que otros módulos (Exchange, jobs) pueden
   // usar. Nadie más escribe en la base Portfolio.
@@ -60,6 +64,8 @@ import { PublicPortfoliosController } from './public-portfolios.controller';
     PositionLedgerService,
     UserDataPurgeService,
     PortfolioAdminService,
+    GoalsService,
+    StrategyService,
   ],
 })
 export class PortfolioModule {}

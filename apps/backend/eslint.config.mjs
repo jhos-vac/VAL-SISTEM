@@ -16,6 +16,7 @@ const DB_OWNERS = {
   ],
   market: ['src/market/**'],
   portfolio: ['src/portfolio/**', 'src/jobs/job-lease.service.ts'],
+  automation: ['src/alerts/**'],
 };
 
 const forbidDbs = (dbs) => ({

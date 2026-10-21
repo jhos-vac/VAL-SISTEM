@@ -2,6 +2,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import { AccountDeletionService } from './account-deletion.service';
 import type { AccountClosureService } from '../users/account-closure.service';
 import type { UserDataPurgeService } from '../portfolio/user-data-purge.service';
+import type { AlertsService } from '../alerts/alerts.service';
 
 jest.mock('../users/account-closure.service', () => ({
   AccountClosureService: class {},
@@ -9,6 +10,7 @@ jest.mock('../users/account-closure.service', () => ({
 jest.mock('../portfolio/user-data-purge.service', () => ({
   UserDataPurgeService: class {},
 }));
+jest.mock('../alerts/alerts.service', () => ({ AlertsService: class {} }));
 
 function setup() {
   const calls: string[] = [];
@@ -28,6 +30,9 @@ function setup() {
   const service = new AccountDeletionService(
     closure as unknown as AccountClosureService,
     purge as unknown as UserDataPurgeService,
+    {
+      purgeUser: jest.fn().mockResolvedValue(undefined),
+    } as unknown as AlertsService,
   );
   return { service, closure, purge, calls };
 }

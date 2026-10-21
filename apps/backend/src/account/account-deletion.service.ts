@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { AccountClosureService } from '../users/account-closure.service';
 import { UserDataPurgeService } from '../portfolio/user-data-purge.service';
+import { AlertsService } from '../alerts/alerts.service';
 
 // Días durante los que el job sigue limpiando los datos de una cuenta dada
 // de baja (por si un paso falló o llegó una escritura tardía).
@@ -11,7 +12,8 @@ export const PURGE_RETRY_DAYS = 30;
 //  1. Identity: la cuenta queda dada de baja y sin datos personales. Desde
 //     acá ya no se puede iniciar sesión ni renovar la sesión.
 //  2. Portfolio: se borran portafolios, posiciones, cuentas de exchange, …
-// Si el paso 2 falla, la cuenta igual queda dada de baja y el job
+//  3. Automation: avisos y notificaciones.
+// Si los pasos 2 o 3 fallan, la cuenta igual queda dada de baja y el job
 // `account.purge-closed` lo reintenta (es idempotente).
 @Injectable()
 export class AccountDeletionService {
@@ -20,15 +22,21 @@ export class AccountDeletionService {
   constructor(
     private readonly closure: AccountClosureService,
     private readonly portfolioData: UserDataPurgeService,
+    private readonly alerts: AlertsService,
   ) {}
+
+  private async purgeData(userId: string): Promise<void> {
+    await this.portfolioData.purgeUser(userId);
+    await this.alerts.purgeUser(userId);
+  }
 
   async deleteAccount(userId: string, password: string): Promise<void> {
     await this.closure.close(userId, password);
     try {
-      await this.portfolioData.purgeUser(userId);
+      await this.purgeData(userId);
     } catch (err) {
       this.logger.error(
-        `Cuenta ${userId} dada de baja; la limpieza de Portfolio falló y la reintenta el job`,
+        `Cuenta ${userId} dada de baja; la limpieza de sus datos falló y la reintenta el job`,
         err,
       );
     }
@@ -41,7 +49,7 @@ export class AccountDeletionService {
       PURGE_RETRY_DAYS,
     )) {
       try {
-        await this.portfolioData.purgeUser(userId);
+        await this.purgeData(userId);
         counts.purged++;
       } catch (err) {
         counts.failed++;

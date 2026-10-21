@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { UserPrismaService } from './user-prisma.service';
 import { MarketPrismaService } from './market-prisma.service';
 import { PortfolioPrismaService } from './portfolio-prisma.service';
+import { AutomationPrismaService } from './automation-prisma.service';
 
 // Un módulo por base de datos, NO global: cada dominio importa solo el de
 // su base. Así un módulo no puede escribir en las tablas de otro dominio
@@ -31,3 +32,10 @@ export class MarketPrismaModule {}
   exports: [PortfolioPrismaService],
 })
 export class PortfolioPrismaModule {}
+
+// Automation: reglas de aviso y notificaciones (módulo alerts).
+@Module({
+  providers: [AutomationPrismaService],
+  exports: [AutomationPrismaService],
+})
+export class AutomationPrismaModule {}

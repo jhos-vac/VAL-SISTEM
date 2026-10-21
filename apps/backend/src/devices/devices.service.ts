@@ -73,4 +73,26 @@ export class DevicesService {
     }
     await this.prisma.device.delete({ where: { id: device.id } });
   }
+
+  // Tokens push de varios usuarios (para el envío de avisos).
+  async pushTokens(userIds: string[]): Promise<Map<string, string[]>> {
+    if (userIds.length === 0) return new Map();
+    const devices = await this.prisma.device.findMany({
+      where: { userId: { in: userIds } },
+      select: { userId: true, pushToken: true },
+    });
+    const out = new Map<string, string[]>();
+    for (const d of devices) {
+      out.set(d.userId, [...(out.get(d.userId) ?? []), d.pushToken]);
+    }
+    return out;
+  }
+
+  // Expo avisa que el token ya no existe (app desinstalada): se borra.
+  async removeByPushTokens(tokens: string[]): Promise<void> {
+    if (tokens.length === 0) return;
+    await this.prisma.device.deleteMany({
+      where: { pushToken: { in: tokens } },
+    });
+  }
 }

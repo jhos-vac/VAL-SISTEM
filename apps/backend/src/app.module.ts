@@ -13,6 +13,7 @@ import { DevicesModule } from './devices/devices.module';
 import { JobsModule } from './jobs/jobs.module';
 import { AccountModule } from './account/account.module';
 import { AdminModule } from './admin/admin.module';
+import { AlertsModule } from './alerts/alerts.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { RolesGuard } from './common/guards/roles.guard';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
@@ -31,6 +32,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     AccountModule,
     JobsModule,
     AdminModule,
+    AlertsModule,
   ],
   controllers: [AppController],
   providers: [

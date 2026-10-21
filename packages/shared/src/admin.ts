@@ -93,6 +93,7 @@ export const JOB_LABELS: Record<string, string> = {
   "exchange.account-sync": "Sync de cuentas Binance",
   "portfolio.snapshots": "Snapshots de portafolios",
   "account.purge-closed": "Limpieza de cuentas cerradas",
+  "alerts.evaluate": "Avisos",
 };
 
 export const JOB_STATE_LABELS: Record<JobState, string> = {

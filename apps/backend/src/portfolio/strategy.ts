@@ -114,7 +114,11 @@ export interface DcaProgress {
   finished: boolean;
 }
 
-function addPeriods(start: Date, frequency: DcaFrequency, n: number): Date {
+export function addPeriods(
+  start: Date,
+  frequency: DcaFrequency,
+  n: number,
+): Date {
   const d = new Date(start.getTime());
   if (frequency === 'monthly') {
     d.setUTCMonth(d.getUTCMonth() + n);
