@@ -15,8 +15,8 @@ export const TAB_ICONS: Record<string, { icon: IconName; active: IconName }> = {
   settings: { icon: 'person-outline', active: 'person' },
 };
 
-// Barra de pestañas flotante: pastilla oscura con la pestaña activa en un
-// círculo claro (como la referencia de diseño).
+// Barra de pestañas flotante. Sigue al modo: en claro es una pastilla clara
+// con la pestaña activa en un círculo oscuro; en oscuro, al revés.
 export function TabBar({ state, descriptors, navigation, insets }: TabBarProps) {
   const t = useTheme();
   return (
@@ -31,7 +31,9 @@ export function TabBar({ state, descriptors, navigation, insets }: TabBarProps) 
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          backgroundColor: t.tabBar,
+          backgroundColor: t.surface,
+          borderWidth: 1,
+          borderColor: t.border,
           borderRadius: radius.pill,
           padding: spacing.sm,
           shadowColor: '#000',
@@ -64,13 +66,13 @@ export function TabBar({ state, descriptors, navigation, insets }: TabBarProps) 
                 borderRadius: 26,
                 alignItems: 'center',
                 justifyContent: 'center',
-                backgroundColor: focused ? t.tabActive : 'transparent',
+                backgroundColor: focused ? t.foreground : 'transparent',
               }}
             >
               <Ionicons
                 name={focused ? icons.active : icons.icon}
                 size={22}
-                color={focused ? t.tabActiveIcon : t.tabIcon}
+                color={focused ? t.background : t.textMuted}
               />
             </Pressable>
           );

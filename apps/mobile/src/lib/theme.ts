@@ -2,8 +2,8 @@
 // blancas y tarjetas "destacadas" oscuras) y modo oscuro (lo inverso).
 // Ganancia y pérdida conservan verde/rojo con contraste suficiente.
 //
-// TEMPORAL: hay varias paletas para compararlas en el teléfono (Ajustes →
-// Paleta de colores). Cuando se elija una, quedará solo esa.
+// El usuario elige la paleta en Ajustes → Preferencias (se guarda en el
+// teléfono) y el modo claro/oscuro/del sistema (se guarda en su cuenta).
 import { createContext, useContext } from 'react';
 import { useColorScheme } from 'react-native';
 import { useAppearance, type PaletteName } from '@/store/appearance';
@@ -22,10 +22,6 @@ type PaletteKey =
   | 'accent'
   // Fondo de una tarjeta destacada cuando esta paleta es la invertida.
   | 'emphasis'
-  | 'tabBar'
-  | 'tabActive'
-  | 'tabActiveIcon'
-  | 'tabIcon'
   | 'pnlUp'
   | 'pnlDown'
   | 'warning';
@@ -52,10 +48,6 @@ export const PALETTES: Record<PaletteName, { label: string; swatch: string[]; li
       onPrimary: '#FFFFFF',
       accent: '#8EB69B',
       emphasis: '#DAF1DE',
-      tabBar: '#051F20',
-      tabActive: '#DAF1DE',
-      tabActiveIcon: '#051F20',
-      tabIcon: '#8EB69B',
       ...GAIN_LOSS_LIGHT,
     },
     dark: {
@@ -71,10 +63,6 @@ export const PALETTES: Record<PaletteName, { label: string; swatch: string[]; li
       onPrimary: '#051F20',
       accent: '#8EB69B',
       emphasis: '#0B2B26',
-      tabBar: '#0B2B26',
-      tabActive: '#DAF1DE',
-      tabActiveIcon: '#051F20',
-      tabIcon: '#8EB69B',
       ...GAIN_LOSS_DARK,
     },
   },
@@ -94,10 +82,6 @@ export const PALETTES: Record<PaletteName, { label: string; swatch: string[]; li
       onPrimary: '#FFFFFF',
       accent: '#9A9AA6',
       emphasis: '#F2F2F5',
-      tabBar: '#0E0E10',
-      tabActive: '#F2F2F5',
-      tabActiveIcon: '#0E0E10',
-      tabIcon: '#9A9AA6',
       ...GAIN_LOSS_LIGHT,
     },
     dark: {
@@ -113,10 +97,6 @@ export const PALETTES: Record<PaletteName, { label: string; swatch: string[]; li
       onPrimary: '#0E0E10',
       accent: '#63636E',
       emphasis: '#232327',
-      tabBar: '#232327',
-      tabActive: '#F2F2F5',
-      tabActiveIcon: '#0E0E10',
-      tabIcon: '#9A9AA6',
       ...GAIN_LOSS_DARK,
     },
   },
@@ -136,10 +116,6 @@ export const PALETTES: Record<PaletteName, { label: string; swatch: string[]; li
       onPrimary: '#FFFFFF',
       accent: '#C09891',
       emphasis: '#F4DBD8',
-      tabBar: '#2A0800',
-      tabActive: '#F4DBD8',
-      tabActiveIcon: '#2A0800',
-      tabIcon: '#C09891',
       ...GAIN_LOSS_LIGHT,
     },
     dark: {
@@ -155,10 +131,6 @@ export const PALETTES: Record<PaletteName, { label: string; swatch: string[]; li
       onPrimary: '#2A0800',
       accent: '#775144',
       emphasis: '#341710',
-      tabBar: '#341710',
-      tabActive: '#F4DBD8',
-      tabActiveIcon: '#2A0800',
-      tabIcon: '#C09891',
       ...GAIN_LOSS_DARK,
     },
   },
@@ -178,10 +150,6 @@ export const PALETTES: Record<PaletteName, { label: string; swatch: string[]; li
       onPrimary: '#FFFFFF',
       accent: '#9BA8AB',
       emphasis: '#CCD0CF',
-      tabBar: '#06141B',
-      tabActive: '#CCD0CF',
-      tabActiveIcon: '#06141B',
-      tabIcon: '#9BA8AB',
       ...GAIN_LOSS_LIGHT,
     },
     dark: {
@@ -197,10 +165,6 @@ export const PALETTES: Record<PaletteName, { label: string; swatch: string[]; li
       onPrimary: '#06141B',
       accent: '#4A5C6A',
       emphasis: '#11212D',
-      tabBar: '#11212D',
-      tabActive: '#CCD0CF',
-      tabActiveIcon: '#06141B',
-      tabIcon: '#9BA8AB',
       ...GAIN_LOSS_DARK,
     },
   },

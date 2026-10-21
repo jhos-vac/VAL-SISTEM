@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Appearance, Pressable, Text, useColorScheme, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -46,9 +46,6 @@ export default function DashboardScreen() {
   const currency = portfolio?.baseCurrency ?? 'USD';
   const money = (n: number) => formatCurrency(n, currency);
   const [hour] = useState(() => new Date().getHours());
-  // TEMPORAL: botón para probar el modo claro/oscuro sin cambiar el del
-  // teléfono. Quitar cuando exista el selector de tema en Ajustes.
-  const isDark = useColorScheme() === 'dark';
 
   const summary = useQuery({
     queryKey: ['portfolio-summary', portfolio?.id],
@@ -84,22 +81,6 @@ export default function DashboardScreen() {
             <Muted style={{ fontSize: 13 }}>{greeting(hour)}</Muted>
           </View>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-          onPress={() => Appearance.setColorScheme(isDark ? 'light' : 'dark')}
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            backgroundColor: t.foreground,
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: spacing.sm,
-          }}
-        >
-          <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={20} color={t.background} />
-        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Cambiar de portafolio"

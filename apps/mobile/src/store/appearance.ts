@@ -1,5 +1,5 @@
-// TEMPORAL: paleta elegida para comparar opciones de color en el teléfono.
-// Se recuerda entre aperturas; no es dato sensible.
+// Paleta de colores elegida por el usuario. Se recuerda en el teléfono
+// entre aperturas; no es dato sensible.
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Alert, Switch, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Avatar, Body, Button, Card, MenuItem, Muted, Row, Screen } from '@/components/ui';
-import { PalettePicker } from '@/components/PalettePicker';
 import { authenticateWithBiometrics, isBiometricAvailable } from '@/lib/biometrics';
 import { updateSettings } from '@/lib/clients';
 import { APP_VERSION } from '@/lib/config';
@@ -59,7 +58,7 @@ export default function SettingsScreen() {
         <MenuItem
           icon="options-outline"
           title="Preferencias"
-          description="Tema, moneda, idioma y zona horaria"
+          description="Modo, colores, moneda, idioma y zona horaria"
           onPress={() => router.push('/preferences')}
         />
         <MenuItem
@@ -99,8 +98,6 @@ export default function SettingsScreen() {
           />
         </Row>
       </Card>
-
-      <PalettePicker />
 
       <Button title="Cerrar sesión" variant="secondary" icon="log-out-outline" onPress={confirmLogout} />
       <Button title="Eliminar cuenta" variant="danger" onPress={() => router.push('/delete-account')} />

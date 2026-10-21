@@ -4,6 +4,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Chip, ErrorText, Loading, Muted, Screen, TextField } from '@/components/ui';
 import { SectionTitle } from '@/components/plan';
+import { PalettePicker } from '@/components/PalettePicker';
 import {
   fetchSettings,
   fetchSettingsCatalogs,
@@ -19,8 +20,9 @@ const THEMES: { value: ThemePreference; label: string }[] = [
   { value: 'dark', label: 'Oscuro' },
 ];
 
-// Idioma, moneda, zona horaria y tema. Se guardan en la cuenta (los
-// comparten la web y el móvil) y cada cambio se guarda al tocarlo.
+// Modo (claro, oscuro o del teléfono), colores, moneda, idioma y zona
+// horaria. Cada cambio se guarda al tocarlo: el modo y lo demás en la cuenta
+// (los comparte la web); los colores, en el teléfono.
 export default function PreferencesScreen() {
   const t = useTheme();
   const queryClient = useQueryClient();
@@ -59,12 +61,15 @@ export default function PreferencesScreen() {
 
   return (
     <Screen>
-      <SectionTitle>Tema</SectionTitle>
+      <SectionTitle>Modo</SectionTitle>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {THEMES.map((th) => (
           <Chip key={th.value} label={th.label} selected={s.theme === th.value} onPress={() => save.mutate({ theme: th.value })} />
         ))}
       </View>
+
+      <SectionTitle>Colores</SectionTitle>
+      <PalettePicker />
 
       <SectionTitle>Moneda</SectionTitle>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>

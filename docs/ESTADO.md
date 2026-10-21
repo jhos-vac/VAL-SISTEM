@@ -86,9 +86,10 @@ backend juntos (`scripts/dev-reset.js`).
       compartidas con la web), moneda capital, portafolios (crear, editar,
       predeterminado y publicar en el ranking) y desconectar Binance.
     - Historial con filtros por tipo, activo y período.
-    - Diseño: tarjetas redondeadas, barra de pestañas flotante y paletas
-      de prueba (Verde, Grafito, Café, Pizarra) en Ajustes, pendiente de
-      elegir la definitiva.
+    - Diseño: tarjetas redondeadas y barra de pestañas flotante que sigue
+      al modo. En Preferencias se elige el modo (del teléfono, claro u
+      oscuro; se guarda en la cuenta) y los colores (Verde, Grafito, Café o
+      Pizarra; se guardan en el teléfono).
     - Posiciones ordenables (alfabético, ganancia, %, valor); tocar una abre
       sus compras. La lógica de orden y asignación vive en
       `@val-sistem/shared` y la comparten web y móvil.
