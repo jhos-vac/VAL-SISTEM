@@ -1,12 +1,14 @@
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { SplashScreen, Stack } from 'expo-router';
+import { router, SplashScreen, Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { PERSIST_MAX_AGE, queryClient, queryPersister } from '@/lib/query';
 import { bootstrapSession } from '@/lib/session';
 import { registerForPush } from '@/lib/push';
 import { useTheme } from '@/lib/theme';
 import { useAuthStore } from '@/store/auth';
+import { notificationRoute } from '@/lib/alerts-clients';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -32,6 +34,17 @@ export default function RootLayout() {
       });
     }
   }, [status, accessToken]);
+
+  // Tocar una notificación push abre la pantalla del aviso.
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      const link = response.notification.request.content.data?.link;
+      const route = notificationRoute(typeof link === 'string' ? link : null);
+      router.push(route ?? '/notifications');
+    });
+    return () => sub.remove();
+  }, [status]);
 
   if (status === 'idle') return null;
 
@@ -82,6 +95,9 @@ export default function RootLayout() {
           <Stack.Screen name="preferences" options={{ title: 'Preferencias' }} />
           <Stack.Screen name="capital" options={{ title: 'Moneda capital' }} />
           <Stack.Screen name="review" options={{ title: 'Revisión' }} />
+          <Stack.Screen name="notifications" options={{ title: 'Notificaciones' }} />
+          <Stack.Screen name="alerts" options={{ title: 'Avisos' }} />
+          <Stack.Screen name="watchlist" options={{ title: 'Seguimiento' }} />
         </Stack.Protected>
       </Stack>
     </PersistQueryClientProvider>

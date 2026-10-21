@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { IconBell, IconRefresh, IconSearch } from "@/components/icons";
+import { IconRefresh, IconSearch } from "@/components/icons";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 import { formatCurrency, formatPercent } from "@val-sistem/shared";
 import { fetchPortfolios, fetchSummary } from "@/lib/portfolio-client";
 import { ALL_PORTFOLIOS_ID, useDefaultPortfolio } from "@/hooks/useDefaultPortfolio";
@@ -98,14 +99,7 @@ export function Topbar() {
         >
           <IconRefresh />
         </button>
-        <button
-          type="button"
-          className="relative rounded-full p-2 text-text-secondary hover:bg-surface-raised hover:text-foreground"
-          title="Notificaciones"
-        >
-          <IconBell />
-          <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-status-critical" />
-        </button>
+        <NotificationBell />
 
         <div className="relative">
           <button

@@ -23,6 +23,7 @@ import {
 } from '@/components/ui';
 import { useActivePortfolio } from '@/hooks/useActivePortfolio';
 import { fetchAllocation, fetchPerformance, fetchSummary } from '@/lib/clients';
+import { fetchNotifications } from '@/lib/alerts-clients';
 import { onColor, radius, SERIES, spacing, useTheme } from '@/lib/theme';
 import { useAuthStore } from '@/store/auth';
 
@@ -57,6 +58,12 @@ export default function DashboardScreen() {
     queryFn: () => fetchAllocation(portfolio!.id),
     enabled: !!portfolio,
   });
+  const notifications = useQuery({
+    queryKey: ['notifications'],
+    queryFn: () => fetchNotifications(50),
+    refetchInterval: 60_000,
+  });
+  const unread = notifications.data?.unreadCount ?? 0;
   const performance = useQuery({
     queryKey: ['portfolio-performance', portfolio?.id],
     queryFn: () => fetchPerformance(portfolio!.id),
@@ -81,6 +88,41 @@ export default function DashboardScreen() {
             <Muted style={{ fontSize: 13 }}>{greeting(hour)}</Muted>
           </View>
         </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={unread > 0 ? `Notificaciones: ${unread} sin leer` : 'Notificaciones'}
+          onPress={() => router.push('/notifications')}
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 22,
+            borderWidth: 1.5,
+            borderColor: t.foreground,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: spacing.sm,
+          }}
+        >
+          <Ionicons name="notifications-outline" size={20} color={t.foreground} />
+          {unread > 0 ? (
+            <View
+              style={{
+                position: 'absolute',
+                top: -2,
+                right: -2,
+                minWidth: 18,
+                height: 18,
+                borderRadius: 9,
+                paddingHorizontal: 4,
+                backgroundColor: t.pnlDown,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '700' }}>{unread > 9 ? '9+' : unread}</Text>
+            </View>
+          ) : null}
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Cambiar de portafolio"

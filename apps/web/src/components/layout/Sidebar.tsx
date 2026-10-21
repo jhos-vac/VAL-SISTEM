@@ -14,6 +14,8 @@ import {
   IconPieChart,
   IconSettings,
   IconShield,
+  IconStar,
+  IconBell,
   IconTrendingUp,
 } from "@/components/icons";
 import { useIsAdmin } from "@/lib/admin-client";
@@ -39,6 +41,7 @@ const NAV_GROUPS = [
       { href: "/lots", label: "Por compra", icon: IconLayers },
       { href: "/transactions", label: "Transacciones", icon: IconArrowsExchange },
       { href: "/market", label: "Mercado", icon: IconTrendingUp },
+      { href: "/watchlist", label: "Seguimiento", icon: IconStar },
     ],
   },
   {
@@ -47,6 +50,7 @@ const NAV_GROUPS = [
       { href: "/goals", label: "Metas", icon: IconTarget },
       { href: "/strategy", label: "Estrategia", icon: IconCompass },
       { href: "/explore", label: "Explorar", icon: IconUsers },
+      { href: "/alerts", label: "Avisos", icon: IconBell },
     ],
   },
   {

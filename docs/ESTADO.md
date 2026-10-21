@@ -239,6 +239,27 @@ Diferencias del sync de Binance (`computeCostBasisFromTrades`):
   que falta (sin contar el mercado), con un botón que crea el plan DCA hasta
   esa fecha.
 
+## Avisos y seguimiento
+
+- Base Automation, módulo `alerts` (único dueño). Tablas `alert_rules` y
+  `notifications` (`dedupe_key` único por usuario: un aviso no se repite).
+- Avisos que crea el usuario: precio de una moneda (al cruzar; una vez o
+  cada vez), movimiento fuerte de una moneda o del portafolio en 24 h
+  (espera 12 h entre avisos), estrategia desviada (espera 24 h).
+- Automáticos (se pueden apagar): metas (cumplida, hito 25/50/75 %,
+  atrasada una vez por semana) y compra DCA del día.
+- Job `alerts.evaluate` cada 5 min; `POST /admin/alerts/evaluate` lo corre ya.
+- Entrega: centro de notificaciones (campana en web, Inicio en móvil) y push
+  por Expo a los dispositivos de `/devices`. Respeta "notificaciones
+  apagadas" en ajustes y borra tokens que Expo da por inválidos.
+- Seguimiento: `/watchlist` (tablas `watchlists` existentes), con acceso
+  para crear un aviso de precio.
+- **Para recibir push en el celular:** `npx eas-cli init` en `apps/mobile`
+  (guarda el projectId en app.json) y una development build
+  (`npx eas build --profile development`): Expo Go en Android ya no recibe
+  push remotas. Sin eso, los avisos igual llegan al centro de
+  notificaciones.
+
 ## Panel de administración
 
 - Web `/admin`, visible solo con rol admin. El backend exige

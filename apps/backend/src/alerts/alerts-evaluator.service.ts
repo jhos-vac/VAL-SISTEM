@@ -108,7 +108,9 @@ export class AlertsEvaluatorService {
               rule.portfolioId ?? ALL_PORTFOLIOS,
             );
             change = summary.changePercent24h;
-            label = rule.portfolioId ? 'Tu portafolio' : 'Tus portafolios';
+            label = rule.portfolioId
+              ? 'Tu portafolio'
+              : 'El total de tus portafolios';
           }
           if (change === undefined || !moveMet(change, threshold)) continue;
           pending.push(

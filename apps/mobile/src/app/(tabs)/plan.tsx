@@ -9,6 +9,8 @@ import { spacing } from '@/lib/theme';
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 const ITEMS: { href: Href; icon: IconName; title: string; description: string }[] = [
+  { href: '/alerts', icon: 'notifications-outline', title: 'Avisos', description: 'Precio, movimientos fuertes, estrategia, metas y compras.' },
+  { href: '/watchlist', icon: 'star-outline', title: 'Seguimiento', description: 'Monedas que sigues aunque no las tengas.' },
   { href: '/review', icon: 'pulse-outline', title: 'Revisión', description: 'Cuánto subió o bajó cada moneda desde tu compra.' },
   { href: '/goals', icon: 'flag-outline', title: 'Metas', description: 'Valor o % de ganancia a alcanzar, con su progreso.' },
   { href: '/strategy', icon: 'compass-outline', title: 'Estrategia', description: 'Qué % querés en cada activo y qué comprar o vender.' },
